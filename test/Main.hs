@@ -1,0 +1,34 @@
+{-# language LambdaCase #-}
+{-# language OverloadedStrings #-}
+
+import Control.Monad (when)
+import Data.Bytes (Bytes)
+import Json.Path (Path(Key,Index,Nil))
+import Test.Tasty (defaultMain,testGroup,TestTree)
+import Test.Tasty.HUnit ((@=?))
+
+import qualified Data.Bytes as Bytes
+import qualified Data.Bytes.Builder as Builder
+import qualified Data.Bytes.Chunks as BChunks
+import qualified Data.Chunks as Chunks
+import qualified Json
+import qualified Json.Path as Path
+import qualified Test.Tasty.HUnit as THU
+
+main :: IO ()
+main = defaultMain tests
+
+tests :: TestTree
+tests = testGroup "Tests"
+  [ THU.testCase "Json.Path.query-A" $
+      case Json.decode (Bytes.fromAsciiString "{\"bla\": true, \"foo\" : [ 55 , { \"bar\": false } ] }") of
+        Left _ -> fail "failed to parse into syntax tree" 
+        Right v -> 
+          Just Json.False
+          @=?
+          Path.query (Key "foo" $ Index 1 $ Key "bar" $ Nil) v
+  , THU.testCase "Json.Path.encode-A" $
+      "$.foo[1].bar"
+      @=?
+      Path.encode (Key "foo" $ Index 1 $ Key "bar" $ Nil)
+  ]
