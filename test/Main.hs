@@ -15,6 +15,8 @@ import qualified Json
 import qualified Json.Path as Path
 import qualified Test.Tasty.HUnit as THU
 
+import qualified DogHouse
+
 main :: IO ()
 main = defaultMain tests
 
@@ -31,4 +33,16 @@ tests = testGroup "Tests"
       "$.foo[1].bar"
       @=?
       Path.encode (Key "foo" $ Index 1 $ Key "bar" $ Nil)
+  , THU.testCase "DogHouse-A" $ case Json.decode DogHouse.sampleA of
+      Left _ -> fail "failed to parse into syntax tree" 
+      Right val ->
+        DogHouse.expectationA
+        @=?
+        DogHouse.decode val
+  , THU.testCase "DogHouse-B" $ case Json.decode DogHouse.sampleB of
+      Left _ -> fail "failed to parse into syntax tree" 
+      Right val ->
+        DogHouse.expectationB
+        @=?
+        DogHouse.decode val
   ]

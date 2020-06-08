@@ -1,3 +1,5 @@
+{-# language BangPatterns #-}
+
 module Json.Path
   ( Path(..)
     -- * Encoding
@@ -5,7 +7,11 @@ module Json.Path
   , builderUtf8
     -- * Lookup
   , query
+    -- * Reverse
+  , reverse
   ) where
+
+import Prelude hiding (reverse)
 
 import Json (Value(Object,Array),Member(Member))
 import Data.Primitive (ByteArray(ByteArray))
@@ -26,6 +32,7 @@ data Path
     -- ^ JSON path element of an index into an array, \"array[index]\".
     -- Negative numbers result in undefined behavior.
   | Nil
+  deriving (Eq,Show)
 
 -- | Encode a path.
 --
@@ -59,15 +66,8 @@ query = go where
 ba2st :: ByteArray -> ShortText
 ba2st (ByteArray x) = TS.fromShortByteStringUnsafe (SBS x)
 
--- Example Use:
--- data Foo = Foo String String String
--- object :: Parser Value (Chunks _)
--- myParser :: Parser Value Foo
--- myParser =
---   object
---   >->
---   Foo
---     <$> path "foo"
---     <*> (path "bar" >-> object >-> path "baz")
---     <*> path "gaz"
-
+reverse :: Path -> Path
+reverse = go Nil where
+  go !acc Nil = acc
+  go !acc (Key k xs) = go (Key k acc) xs
+  go !acc (Index i xs) = go (Index i acc) xs

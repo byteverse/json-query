@@ -18,7 +18,9 @@ extra-source-files: CHANGELOG.md
 
 library
   exposed-modules:
+    Json.Parser
     Json.Path
+    Json.Query
   build-depends:
     , base >=4.12 && <5
     , json-syntax >=0.1 && <0.2
@@ -27,6 +29,8 @@ library
     , array-chunks >=0.1.2 && <0.2
     , bytestring >=0.10 && <0.11
     , primitive >=0.7 && <0.8
+    , transformers >=0.5.6 && <0.6
+    , scientific-notation >=0.1.2 && <0.2
   hs-source-dirs: src
   default-language: Haskell2010
   ghc-options: -Wall
@@ -36,6 +40,8 @@ test-suite test
   type: exitcode-stdio-1.0
   hs-source-dirs: test
   main-is: Main.hs
+  other-modules:
+    DogHouse
   ghc-options: -Wall -O2
   build-depends:
     , array-chunks
@@ -49,3 +55,5 @@ test-suite test
     , tasty >=1.2.3
     , tasty-hunit >=0.10.0.2
     , text-short
+    , neat-interpolation >=0.5.1
+    , text >=1.2
