@@ -26,6 +26,7 @@ module Json.Parser
   , string
     -- * Trivial Combinators
   , int
+  , word16
   ) where
 
 import Prelude hiding (fail)
@@ -39,6 +40,7 @@ import Data.List (find)
 import Data.Kind (Type)
 import Data.Primitive (SmallArray)
 import Data.Text.Short (ShortText)
+import Data.Word (Word16)
 import Json (Value(Object,Array,Number),Member(Member))
 import Json.Path (Path(Nil,Key,Index))
 import Data.Number.Scientific (Scientific)
@@ -108,6 +110,11 @@ string = \case
 
 int :: Scientific -> Parser Int
 int m = case SCI.toInt m of
+  Just n -> pure n
+  _ -> fail
+
+word16 :: Scientific -> Parser Word16
+word16 m = case SCI.toWord16 m of
   Just n -> pure n
   _ -> fail
 
