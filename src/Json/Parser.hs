@@ -27,6 +27,8 @@ module Json.Parser
     -- * Trivial Combinators
   , int
   , word16
+    -- * Failing
+  , fail
   ) where
 
 import Prelude hiding (fail)
