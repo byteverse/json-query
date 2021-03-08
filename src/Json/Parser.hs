@@ -29,6 +29,8 @@ module Json.Parser
   , word16
     -- * Failing
   , fail
+    -- * Modified Context 
+  , contextually
   ) where
 
 import Prelude hiding (fail)
@@ -144,6 +146,8 @@ key !name f = MemberParser $ \p mbrs ->
 -- elements :: Parser Value (Chunks Value)
 -- elements = _
 
+-- | Run the same parser against every element in a 'SmallArray'. This adjusts
+-- the context at each element.
 smallArray :: (Value -> Parser a) -> SmallArray Value -> Parser (SmallArray a)
 smallArray f xs = Parser $ \ !p -> runST do
   let !len = length xs
@@ -160,3 +164,12 @@ smallArray f xs = Parser $ \ !p -> runST do
 errorThunk :: a
 {-# noinline errorThunk #-}
 errorThunk = errorWithoutStackTrace "Json.Parser: implementation mistake"
+
+-- | Run a parser in a modified context.
+contextually :: (Path -> Path) -> Parser a -> Parser a
+{-# inline contextually #-}
+contextually f (Parser g) = Parser
+  (\p ->
+    let !p' = f p
+     in g p'
+  )
