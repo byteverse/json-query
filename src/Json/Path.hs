@@ -1,4 +1,6 @@
 {-# language BangPatterns #-}
+{-# language MagicHash #-}
+{-# language UnboxedTuples #-}
 
 module Json.Path
   ( Path(..)
@@ -19,9 +21,9 @@ import Data.Text.Short (ShortText)
 import Data.Bytes.Builder (Builder)
 import Data.ByteString.Short.Internal (ShortByteString(SBS))
 
-import qualified Data.Chunks as Chunks
 import qualified Data.Bytes.Chunks as ByteChunks
 import qualified Data.Bytes.Builder as Builder
+import qualified Data.Primitive as PM
 import qualified Data.Text.Short.Unsafe as TS
 
 -- | A path to an object.
@@ -60,7 +62,11 @@ query = go where
       then Just val
       else other
     ) Nothing mbrs >>= go p
-  go (Index i p) (Array vs) = Chunks.index vs i >>= go p
+  go (Index i p) (Array vs) = if i < PM.sizeofSmallArray vs
+    then
+      let !(# e #) = PM.indexSmallArray## vs i
+       in go p e
+    else Nothing
   go _ _ = Nothing
 
 ba2st :: ByteArray -> ShortText

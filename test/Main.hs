@@ -1,16 +1,11 @@
 {-# language LambdaCase #-}
 {-# language OverloadedStrings #-}
 
-import Control.Monad (when)
-import Data.Bytes (Bytes)
 import Json.Path (Path(Key,Index,Nil))
 import Test.Tasty (defaultMain,testGroup,TestTree)
 import Test.Tasty.HUnit ((@=?))
 
 import qualified Data.Bytes as Bytes
-import qualified Data.Bytes.Builder as Builder
-import qualified Data.Bytes.Chunks as BChunks
-import qualified Data.Chunks as Chunks
 import qualified Json
 import qualified Json.Path as Path
 import qualified Test.Tasty.HUnit as THU

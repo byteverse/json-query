@@ -36,10 +36,8 @@ import Prelude hiding (fail)
 import Control.Monad.ST (runST)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Except (ExceptT(ExceptT),runExceptT)
-import Data.Chunks (Chunks)
 import Data.Foldable (foldlM)
 import Data.List (find)
-import Data.Kind (Type)
 import Data.Primitive (SmallArray)
 import Data.Text.Short (ShortText)
 import Data.Word (Word16)
@@ -69,7 +67,7 @@ instance Monad Parser where
     runParser (g x) p
 
 newtype MemberParser a = MemberParser
-  { runMemberParser :: Path -> Chunks Member -> Either Path a }
+  { runMemberParser :: Path -> SmallArray Member -> Either Path a }
   deriving stock Functor
 
 instance Applicative MemberParser where
@@ -87,17 +85,17 @@ run (Parser f) = case f Nil of
 fail :: Parser a
 fail = Parser (\e -> Left e)
 
-object :: Value -> Parser (Chunks Member)
+object :: Value -> Parser (SmallArray Member)
 object = \case
   Object xs -> pure xs
   _ -> fail
 
-array :: Value -> Parser (Chunks Value)
+array :: Value -> Parser (SmallArray Value)
 array = \case
   Array xs -> pure xs
   _ -> fail
 
-members :: MemberParser a -> Chunks Member -> Parser a
+members :: MemberParser a -> SmallArray Member -> Parser a
 members (MemberParser f) mbrs = Parser (\p -> f p mbrs)
 
 number :: Value -> Parser Scientific
@@ -146,7 +144,7 @@ key !name f = MemberParser $ \p mbrs ->
 -- elements :: Parser Value (Chunks Value)
 -- elements = _
 
-smallArray :: (Value -> Parser a) -> Chunks Value -> Parser (SmallArray a)
+smallArray :: (Value -> Parser a) -> SmallArray Value -> Parser (SmallArray a)
 smallArray f xs = Parser $ \ !p -> runST do
   let !len = length xs
   dst <- PM.newSmallArray len errorThunk
