@@ -27,6 +27,7 @@ module Json.Parser
     -- * Trivial Combinators
   , int
   , word16
+  , word64
     -- * Failing
   , fail
     -- * Modified Context 
@@ -42,7 +43,7 @@ import Data.Foldable (foldlM)
 import Data.List (find)
 import Data.Primitive (SmallArray)
 import Data.Text.Short (ShortText)
-import Data.Word (Word16)
+import Data.Word (Word16,Word64)
 import Json (Value(Object,Array,Number),Member(Member))
 import Json.Path (Path(Nil,Key,Index))
 import Data.Number.Scientific (Scientific)
@@ -117,6 +118,11 @@ int m = case SCI.toInt m of
 
 word16 :: Scientific -> Parser Word16
 word16 m = case SCI.toWord16 m of
+  Just n -> pure n
+  _ -> fail
+
+word64 :: Scientific -> Parser Word64
+word64 m = case SCI.toWord64 m of
   Just n -> pure n
   _ -> fail
 
