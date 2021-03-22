@@ -4,11 +4,14 @@
 {-# language KindSignatures #-}
 {-# language RankNTypes #-}
 
-module Json.Query
-  ( Query(..)
-    -- * Lookup
-  , query
-  ) where
+-- This module has been disabled. It is in an experimental stage.
+-- It may be added back in the future.
+
+-- module Json.Query
+--   ( Query(..)
+--     -- * Lookup
+--   , query
+--   ) where
 
 import Control.Monad.ST (runST)
 import Control.Monad.Trans.Class (lift)

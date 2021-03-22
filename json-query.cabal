@@ -20,7 +20,6 @@ library
   exposed-modules:
     Json.Parser
     Json.Path
-    Json.Query
   build-depends:
     , base >=4.12 && <5
     , json-syntax >=0.2 && <0.3
