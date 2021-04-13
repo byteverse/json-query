@@ -36,17 +36,18 @@ module Json.Parser
 
 import Prelude hiding (fail)
 
+import Control.Applicative (Alternative(..))
 import Control.Monad.ST (runST)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Except (ExceptT(ExceptT),runExceptT)
 import Data.Foldable (foldlM)
 import Data.List (find)
+import Data.Number.Scientific (Scientific)
 import Data.Primitive (SmallArray)
 import Data.Text.Short (ShortText)
 import Data.Word (Word16,Word64)
 import Json (Value(Object,Array,Number),Member(Member))
 import Json.Path (Path(Nil,Key,Index))
-import Data.Number.Scientific (Scientific)
 
 import qualified Data.Number.Scientific as SCI
 import qualified Data.Primitive as PM
@@ -64,6 +65,14 @@ instance Applicative Parser where
     y <- g p
     pure (h y)
 
+instance Alternative Parser where
+  empty = fail
+  f <|> g = Parser $ \p -> case runParser f p of
+    Right x -> Right x
+    Left errA -> case runParser g p of
+      Right y -> Right y
+      Left errB -> Left (max errA errB)
+
 instance Monad Parser where
   Parser f >>= g = Parser $ \p -> do
     x <- f p
@@ -79,6 +88,21 @@ instance Applicative MemberParser where
     h <- f p mbrs
     y <- g p mbrs
     pure (h y)
+
+instance Alternative MemberParser where
+  empty = MemberParser $ \p _ -> Left p
+  a <|> b = MemberParser $ \p mbrs ->
+    case runMemberParser a p mbrs of
+      Right x -> Right x
+      Left errA -> case runMemberParser b p mbrs of
+        Right y -> Right y
+        Left errB -> Left (max errA errB)
+
+instance Monad MemberParser where
+  parser >>= k = MemberParser $ \p mbrs ->
+    case runMemberParser parser p mbrs of
+      Left p' -> Left p'
+      Right x -> runMemberParser (k x) p mbrs
 
 run :: Parser a -> Either Path a
 run (Parser f) = case f Nil of

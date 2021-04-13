@@ -77,3 +77,10 @@ reverse = go Nil where
   go !acc Nil = acc
   go !acc (Key k xs) = go (Key k acc) xs
   go !acc (Index i xs) = go (Index i acc) xs
+
+instance Ord Path where
+  compare a b = compare (len 0 a) (len 0 b)
+    where
+    len !acc (Key _ p) = len (acc + 1) p
+    len !acc (Index _ p) = len (acc + 1) p
+    len !acc Nil = acc
