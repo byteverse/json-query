@@ -11,6 +11,7 @@
 module Json.Parser
   ( Parser(..)
   , MemberParser(..)
+  , Multipath(..)
     -- * Run
   , run
     -- * Object Parsing
@@ -55,7 +56,7 @@ import qualified Json
 import qualified Json.Path as Path
 
 newtype Parser a = Parser
-  { runParser :: Path -> Either Path a }
+  { runParser :: Path -> Either Multipath a }
   deriving stock Functor
 
 instance Applicative Parser where
@@ -69,9 +70,9 @@ instance Alternative Parser where
   empty = fail
   f <|> g = Parser $ \p -> case runParser f p of
     Right x -> Right x
-    Left errA -> case runParser g p of
+    Left (Multipath aErrs) -> case runParser g p of
       Right y -> Right y
-      Left errB -> Left (max errA errB)
+      Left (Multipath bErrs) -> Left (Multipath $ aErrs ++ bErrs)
 
 instance Monad Parser where
   Parser f >>= g = Parser $ \p -> do
@@ -79,7 +80,7 @@ instance Monad Parser where
     runParser (g x) p
 
 newtype MemberParser a = MemberParser
-  { runMemberParser :: Path -> SmallArray Member -> Either Path a }
+  { runMemberParser :: Path -> SmallArray Member -> Either Multipath a }
   deriving stock Functor
 
 instance Applicative MemberParser where
@@ -90,13 +91,13 @@ instance Applicative MemberParser where
     pure (h y)
 
 instance Alternative MemberParser where
-  empty = MemberParser $ \p _ -> Left p
+  empty = MemberParser $ \p _ -> Left $ Multipath [p]
   a <|> b = MemberParser $ \p mbrs ->
     case runMemberParser a p mbrs of
       Right x -> Right x
-      Left errA -> case runMemberParser b p mbrs of
+      Left (Multipath aErrs) -> case runMemberParser b p mbrs of
         Right y -> Right y
-        Left errB -> Left (max errA errB)
+        Left (Multipath bErrs) -> Left (Multipath $ aErrs ++ bErrs)
 
 instance Monad MemberParser where
   parser >>= k = MemberParser $ \p mbrs ->
@@ -104,13 +105,13 @@ instance Monad MemberParser where
       Left p' -> Left p'
       Right x -> runMemberParser (k x) p mbrs
 
-run :: Parser a -> Either Path a
+run :: Parser a -> Either Multipath a
 run (Parser f) = case f Nil of
   Right a -> Right a
-  Left e -> Left (Path.reverse e)
+  Left e -> Left (reverseMultipath e)
 
 fail :: Parser a
-fail = Parser (\e -> Left e)
+fail = Parser (\e -> Left $ Multipath [e])
 
 object :: Value -> Parser (SmallArray Member)
 object = \case
@@ -163,7 +164,7 @@ key :: ShortText -> (Value -> Parser a) -> MemberParser a
 key !name f = MemberParser $ \p mbrs ->
   let !p' = Key name p in
   case find (\Member{key=k} -> k == name) mbrs of
-    Nothing -> Left p'
+    Nothing -> Left $ Multipath [p']
     Just Member{value} -> runParser (f value) p'
 
 -- object2 ::
@@ -203,3 +204,10 @@ contextually f (Parser g) = Parser
     let !p' = f p
      in g p'
   )
+
+
+data Multipath = Multipath [Path]
+  deriving (Show, Eq)
+
+reverseMultipath :: Multipath -> Multipath
+reverseMultipath (Multipath ps) = Multipath (Path.reverse <$> ps)
