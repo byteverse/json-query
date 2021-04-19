@@ -206,7 +206,7 @@ contextually f (Parser g) = Parser
   )
 
 
-data Multipath = Multipath [Path]
+newtype Multipath = Multipath [Path]
   deriving (Show, Eq)
 
 reverseMultipath :: Multipath -> Multipath
