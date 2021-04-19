@@ -11,6 +11,7 @@
 module Json.Parser
   ( Parser(..)
   , MemberParser(..)
+  , Multipath(..)
     -- * Run
   , run
     -- * Object Parsing
@@ -36,17 +37,18 @@ module Json.Parser
 
 import Prelude hiding (fail)
 
+import Control.Applicative (Alternative(..))
 import Control.Monad.ST (runST)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Except (ExceptT(ExceptT),runExceptT)
 import Data.Foldable (foldlM)
 import Data.List (find)
+import Data.Number.Scientific (Scientific)
 import Data.Primitive (SmallArray)
 import Data.Text.Short (ShortText)
 import Data.Word (Word16,Word64)
 import Json (Value(Object,Array,Number),Member(Member))
 import Json.Path (Path(Nil,Key,Index))
-import Data.Number.Scientific (Scientific)
 
 import qualified Data.Number.Scientific as SCI
 import qualified Data.Primitive as PM
@@ -54,7 +56,7 @@ import qualified Json
 import qualified Json.Path as Path
 
 newtype Parser a = Parser
-  { runParser :: Path -> Either Path a }
+  { runParser :: Path -> Either Multipath a }
   deriving stock Functor
 
 instance Applicative Parser where
@@ -64,13 +66,21 @@ instance Applicative Parser where
     y <- g p
     pure (h y)
 
+instance Alternative Parser where
+  empty = fail
+  f <|> g = Parser $ \p -> case runParser f p of
+    Right x -> Right x
+    Left (Multipath aErrs) -> case runParser g p of
+      Right y -> Right y
+      Left (Multipath bErrs) -> Left (Multipath $ aErrs ++ bErrs)
+
 instance Monad Parser where
   Parser f >>= g = Parser $ \p -> do
     x <- f p
     runParser (g x) p
 
 newtype MemberParser a = MemberParser
-  { runMemberParser :: Path -> SmallArray Member -> Either Path a }
+  { runMemberParser :: Path -> SmallArray Member -> Either Multipath a }
   deriving stock Functor
 
 instance Applicative MemberParser where
@@ -80,13 +90,28 @@ instance Applicative MemberParser where
     y <- g p mbrs
     pure (h y)
 
-run :: Parser a -> Either Path a
+instance Alternative MemberParser where
+  empty = MemberParser $ \p _ -> Left $ Multipath [p]
+  a <|> b = MemberParser $ \p mbrs ->
+    case runMemberParser a p mbrs of
+      Right x -> Right x
+      Left (Multipath aErrs) -> case runMemberParser b p mbrs of
+        Right y -> Right y
+        Left (Multipath bErrs) -> Left (Multipath $ aErrs ++ bErrs)
+
+instance Monad MemberParser where
+  parser >>= k = MemberParser $ \p mbrs ->
+    case runMemberParser parser p mbrs of
+      Left p' -> Left p'
+      Right x -> runMemberParser (k x) p mbrs
+
+run :: Parser a -> Either Multipath a
 run (Parser f) = case f Nil of
   Right a -> Right a
-  Left e -> Left (Path.reverse e)
+  Left e -> Left (reverseMultipath e)
 
 fail :: Parser a
-fail = Parser (\e -> Left e)
+fail = Parser (\e -> Left $ Multipath [e])
 
 object :: Value -> Parser (SmallArray Member)
 object = \case
@@ -139,7 +164,7 @@ key :: ShortText -> (Value -> Parser a) -> MemberParser a
 key !name f = MemberParser $ \p mbrs ->
   let !p' = Key name p in
   case find (\Member{key=k} -> k == name) mbrs of
-    Nothing -> Left p'
+    Nothing -> Left $ Multipath [p']
     Just Member{value} -> runParser (f value) p'
 
 -- object2 ::
@@ -179,3 +204,10 @@ contextually f (Parser g) = Parser
     let !p' = f p
      in g p'
   )
+
+
+newtype Multipath = Multipath [Path]
+  deriving (Show, Eq)
+
+reverseMultipath :: Multipath -> Multipath
+reverseMultipath (Multipath ps) = Multipath (Path.reverse <$> ps)
