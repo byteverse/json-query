@@ -10,7 +10,9 @@ import qualified Json
 import qualified Json.Path as Path
 import qualified Test.Tasty.HUnit as THU
 
+import qualified Arrowy
 import qualified DogHouse
+import qualified Monadic
 
 main :: IO ()
 main = defaultMain tests
@@ -28,16 +30,28 @@ tests = testGroup "Tests"
       "$.foo[1].bar"
       @=?
       Path.encode (Key "foo" $ Index 1 $ Key "bar" $ Nil)
-  , THU.testCase "DogHouse-A" $ case Json.decode DogHouse.sampleA of
+  , THU.testCase "DogHouse-Monadic-A" $ case Json.decode DogHouse.sampleGood of
       Left _ -> fail "failed to parse into syntax tree" 
       Right val ->
-        DogHouse.expectationA
+        Right DogHouse.expectationGood
         @=?
-        DogHouse.decode val
-  , THU.testCase "DogHouse-B" $ case Json.decode DogHouse.sampleB of
+        Monadic.decode val
+  , THU.testCase "DogHouse-Monadic-B" $ case Json.decode DogHouse.sampleBad of
       Left _ -> fail "failed to parse into syntax tree" 
       Right val ->
-        DogHouse.expectationB
+        Monadic.expectationBad
         @=?
-        DogHouse.decode val
+        Monadic.decode val
+  , THU.testCase "DogHouse-Arrowy-A" $ case Json.decode DogHouse.sampleGood of
+      Left _ -> fail "failed to parse into syntax tree" 
+      Right val ->
+        Right DogHouse.expectationGood
+        @=?
+        Arrowy.decode val
+  , THU.testCase "DogHouse-Arrowy-B" $ case Json.decode DogHouse.sampleBad of
+      Left _ -> fail "failed to parse into syntax tree" 
+      Right val ->
+        Arrowy.expectationBad
+        @=?
+        Arrowy.decode val
   ]

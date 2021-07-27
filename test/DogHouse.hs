@@ -6,30 +6,23 @@
 module DogHouse
   ( House(..)
   , Dog(..)
-  , decode
-  , sampleA
-  , sampleB
-  , expectationA
-  , expectationB
+  , sampleGood
+  , sampleBad
+  , expectationGood
   ) where
 
-import Control.Monad ((>=>))
 import Data.ByteString.Short.Internal (ShortByteString(SBS))
 import Data.Bytes (Bytes)
 import Data.Primitive (ByteArray)
 import Data.Primitive (SmallArray)
 import Data.Text.Encoding (encodeUtf8)
 import Data.Text.Short (ShortText)
-import Json.Parser (Parser,MemberParser)
-import Json.Path (Path(Key,Index,Nil))
 import NeatInterpolation (text)
 
 import qualified Data.ByteString.Short as SBS
 import qualified Data.Bytes as Bytes
 import qualified Data.Primitive as PM
 import qualified GHC.Exts as Exts
-import qualified Json
-import qualified Json.Parser as P
 
 data House = House
   { address :: !ShortText
@@ -42,30 +35,11 @@ data Dog = Dog
   , alive :: !Bool
   } deriving (Eq,Show)
 
-decode :: Json.Value -> Either Path House
-decode v = P.run (P.object v >>= P.members houseMemberParser)
-
-houseMemberParser :: MemberParser House
-houseMemberParser = do
-  address <- P.key "address" P.string
-  dogs <- P.key "dogs" $ \v -> do
-    arr <- P.array v
-    flip P.smallArray arr $ \e -> do
-      P.object e >>= P.members dogMemberParser
-  pure (House{address,dogs})
-
-dogMemberParser :: MemberParser Dog
-dogMemberParser = do
-  name <- P.key "name" P.string
-  age <- P.key "age" (P.number >=> P.int)
-  alive <- P.key "alive" P.boolean
-  pure Dog{name,age,alive}
-
 shortByteStringToByteArray :: ShortByteString -> ByteArray 
 shortByteStringToByteArray (SBS x) = PM.ByteArray x
 
-expectationA :: Either Path House
-expectationA = Right House
+expectationGood :: House
+expectationGood = House
   { address = "123 Walsh Street"
   , dogs = Exts.fromList
     [ Dog
@@ -81,11 +55,8 @@ expectationA = Right House
     ]
   }
 
-expectationB :: Either Path House
-expectationB = Left (Key "dogs" $ Index 1 $ Key "age" $ Nil)
-
-sampleA :: Bytes
-sampleA = id
+sampleGood :: Bytes
+sampleGood = id
   $ Bytes.fromByteArray
   $ shortByteStringToByteArray
   $ SBS.toShort
@@ -106,8 +77,8 @@ sampleA = id
   }
   |]
 
-sampleB :: Bytes
-sampleB = id
+sampleBad :: Bytes
+sampleBad = id
   $ Bytes.fromByteArray
   $ shortByteStringToByteArray
   $ SBS.toShort
