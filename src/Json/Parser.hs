@@ -19,6 +19,7 @@ module Json.Parser
   , members
     -- * Arrays
   , smallArray
+  , traverseMembers
     -- * Specific Data Constructors
   , object
   , array
@@ -187,6 +188,20 @@ smallArray f xs = Parser $ \ !p -> runST do
     _ <- foldlM
       (\ix x -> do
         !y <- ExceptT (pure (runParser (f x) (Index ix p)))
+        lift (PM.writeSmallArray dst ix y)
+        pure (ix + 1)
+      ) 0 xs
+    lift (PM.unsafeFreezeSmallArray dst)
+
+-- | Traverse the members. The adjusts the context at each member.
+traverseMembers :: (Member -> Parser a) -> SmallArray Member -> Parser (SmallArray a)
+traverseMembers f !xs = Parser $ \ !p -> runST do
+  let !len = length xs
+  dst <- PM.newSmallArray len errorThunk
+  runExceptT $ do
+    !_ <- foldlM
+      (\ !ix x@Member{key=k} -> do
+        !y <- ExceptT (pure (runParser (f x) (Key k p)))
         lift (PM.writeSmallArray dst ix y)
         pure (ix + 1)
       ) 0 xs
