@@ -249,8 +249,14 @@ word64 = number >>> liftMaybe (Just "number too big") SCI.toWord64
 fromNull :: a -> Value ~> a
 fromNull z = null >>> pure z
 
-errorToUtf8 :: Context -> Builder
-errorToUtf8 ctx0 = Builder.ascii '$' <> go ctx0
+errorToUtf8 :: Error -> Builder
+errorToUtf8 (Error msg ctx)
+  =  contextToUtf8 ctx
+  <> Builder.ascii2 ':' ' '
+  <> Builder.shortTextUtf8 msg
+
+contextToUtf8 :: Context -> Builder
+contextToUtf8 ctx0 = Builder.ascii '$' <> go ctx0
   where
   go Top = mempty
   go (Key k ctx) = go ctx <> Builder.ascii '.' <> Builder.shortTextUtf8 k
