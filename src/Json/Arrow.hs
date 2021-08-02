@@ -37,6 +37,8 @@ module Json.Arrow
   , int
   , word16
   , word64
+  -- * Conversion
+  , liftMaybe
   ) where
 
 import Prelude hiding (id, (.), fail, map, null)
