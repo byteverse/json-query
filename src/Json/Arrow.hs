@@ -50,7 +50,6 @@ import Control.Category (Category(..))
 import Control.Monad.ST (runST)
 import Data.Bytes.Builder (Builder)
 import Data.List (find)
-import Data.Maybe (fromMaybe)
 import Data.Number.Scientific (Scientific)
 import Data.Primitive (SmallArray)
 import Data.Profunctor (Profunctor(..))
@@ -228,12 +227,13 @@ fail msg = P $ \ctx _ -> Left [Error msg ctx]
 failZero :: a ~> b
 failZero = P $ \ctx _ -> Left [Error "" ctx]
 
-liftMaybe :: Maybe ShortText -> (a -> Maybe b) -> a ~> b
+liftMaybe ::
+     ShortText -- ^ Message to display on decode error
+  -> (a -> Maybe b) -- ^ Decode function
+  -> a ~> b
 liftMaybe msg f = P $ \ctx x -> case f x of
   Just y -> Right (ctx, y)
-  Nothing -> Left [Error (fromMaybe "" msg) ctx]
-
-
+  Nothing -> Left [Error msg ctx]
 
 withObject :: (Members ~> a) -> Value ~> a
 withObject membParser = object >>> membParser
@@ -242,13 +242,13 @@ withArray :: (Value ~> a) -> Value ~> SmallArray a
 withArray elemParser = array >>> map elemParser
 
 int :: Value ~> Int
-int = number >>> liftMaybe (Just "number too big") SCI.toInt
+int = number >>> liftMaybe "number too big" SCI.toInt
 
 word16 :: Value ~> Word16
-word16 = number >>> liftMaybe (Just "number too big") SCI.toWord16
+word16 = number >>> liftMaybe "number too big" SCI.toWord16
 
 word64 :: Value ~> Word64
-word64 = number >>> liftMaybe (Just "number too big") SCI.toWord64
+word64 = number >>> liftMaybe "number too big" SCI.toWord64
 
 fromNull :: a -> Value ~> a
 fromNull z = null >>> pure z
