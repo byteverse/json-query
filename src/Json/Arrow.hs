@@ -77,12 +77,14 @@ run (P p) x = snd <$> p Top x
 -- | keys and indexes through json stored with deepest key/index nearest the head ctor
 data Context
   = Top
-  | Key ShortText Context
-  | Idx Int Context
+  | Key !ShortText !Context
+  | Idx !Int !Context
   deriving (Eq,Show)
 
-data Error = Error ShortText Context
-  deriving (Eq,Show)
+data Error = Error
+  { message :: !ShortText
+  , context :: !Context
+  } deriving (Eq,Show)
 
 
 object :: Value ~> Members
