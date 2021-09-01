@@ -1,13 +1,16 @@
 {-# language LambdaCase #-}
 {-# language OverloadedStrings #-}
 
+import Data.Bytes (Bytes)
 import Json.Path (Path(Key,Index,Nil))
 import Test.Tasty (defaultMain,testGroup,TestTree)
 import Test.Tasty.HUnit ((@=?))
+import Control.Arrow ((>>>))
 
 import qualified Data.Bytes as Bytes
 import qualified Json
 import qualified Json.Path as Path
+import qualified Json.Arrow as A
 import qualified Test.Tasty.HUnit as THU
 
 import qualified Arrowy
@@ -54,4 +57,19 @@ tests = testGroup "Tests"
         Arrowy.expectationBad
         @=?
         Arrowy.decode val
+  , THU.testCase "Arrowy-strings-A" $ case Json.decode sampleArrowyStrings of
+      Left _ -> fail "failed to parse into syntax tree" 
+      Right val ->
+        Left
+          [ A.Error
+            { A.context = A.Idx 2 (A.Key "foo" A.Top)
+            , A.message = "expected string"
+            }
+          ]
+        @=?
+        A.run (A.object >>> A.member "foo" >>> A.strings) val
   ]
+
+sampleArrowyStrings :: Bytes
+sampleArrowyStrings = Bytes.fromAsciiString
+  "{\"bla\": true, \"foo\" : [ \"bar\", \"baz\", null, \"hey\"] }"
