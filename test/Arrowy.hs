@@ -8,6 +8,7 @@
 module Arrowy
   ( decode
   , expectationBad
+  , badErrors
   ) where
 
 import Prelude hiding (id)
@@ -15,11 +16,12 @@ import Prelude hiding (id)
 import Control.Arrow ((>>>),(<+>))
 import DogHouse(Dog(..),House(..))
 import Json.Arrow (type (~>),Members,Error(..),Context(..))
+import Json.Arrow (Errors(..))
 
 import qualified Json
 import qualified Json.Arrow as P
 
-decode :: Json.Value -> Either [Error] House
+decode :: Json.Value -> Either Errors House
 decode = P.run (P.object >>> houseMemberParser)
 
 houseMemberParser :: Members ~> House
@@ -35,8 +37,10 @@ dogMemberParser = do
   alive <- P.member "alive" >>> P.boolean
   pure Dog{name,age,alive}
 
-expectationBad :: Either [Error] House
-expectationBad = Left
-  [ Error "expected number" $ Key "age" $ Idx 1 $ Key "dogs" Top
-  , Error "expected null" $ Key "age" $ Idx 1 $ Key "dogs" Top
-  ]
+expectationBad :: Either Errors House
+expectationBad = Left badErrors
+
+badErrors :: Errors
+badErrors = ErrorsPlus
+  (ErrorsOne (Error "expected number" $ Key "age" $ Index 1 $ Key "dogs" Top))
+  (ErrorsOne (Error "expected null" $ Key "age" $ Index 1 $ Key "dogs" Top))

@@ -61,13 +61,17 @@ tests = testGroup "Tests"
       Left _ -> fail "failed to parse into syntax tree" 
       Right val ->
         Left
-          [ A.Error
-            { A.context = A.Idx 2 (A.Key "foo" A.Top)
+          ( A.ErrorsOne A.Error
+            { A.context = A.Index 2 (A.Key "foo" A.Top)
             , A.message = "expected string"
             }
-          ]
+          )
         @=?
         A.run (A.object >>> A.member "foo" >>> A.strings) val
+  , THU.testCase "Arrowy-encode-errors" $
+      "$.dogs[1].age: expected number, $.dogs[1].age: expected null"
+      @=?
+      A.encodeErrors Arrowy.badErrors
   ]
 
 sampleArrowyStrings :: Bytes

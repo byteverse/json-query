@@ -8,10 +8,15 @@
 module Json.Arrow
   ( Parser
   , type (~>)
-  , run
   , Error(..)
-  , errorToUtf8
+  , Errors(..)
   , Context(..)
+  -- * Display Errors
+  , errorToUtf8
+  , errorsToUtf8
+  , encodeErrors
+  -- * Run Parser
+  , run
   -- * Primitive Parsers
   , object
   , array
@@ -50,6 +55,7 @@ import Control.Arrow (ArrowZero(..),ArrowPlus(..),ArrowChoice(..),ArrowApply(..)
 import Control.Category (Category(..))
 import Control.Monad.ST (runST)
 import Control.Monad.Trans.Except (ExceptT(ExceptT),runExceptT)
+import Data.ByteString.Short.Internal (ShortByteString(SBS))
 import Data.Bytes.Builder (Builder)
 import Data.List (find)
 import Data.Number.Scientific (Scientific)
@@ -59,50 +65,52 @@ import Data.Profunctor (Profunctor(..))
 import Data.Text.Short (ShortText)
 import Data.Word (Word16,Word64)
 import Json (Value(Object,Array,String,Number), Member(Member))
+import Json.Context (Context(..))
 
+import qualified Data.Bytes.Chunks as ByteChunks
 import qualified Data.Bytes.Builder as Builder
 import qualified Data.Number.Scientific as SCI
 import qualified Data.Primitive.Contiguous as Arr
+import qualified Data.Primitive as PM
 import qualified Json
-
+import qualified Json.Context as Context
+import qualified Json.Path as Path
+import qualified Data.Text.Short.Unsafe as TS
 
 newtype Parser a b = P
   { unParser :: Context -- ^ reverse list of json keys & indices that have been entered
              -> a -- ^ value to parse
-             -> Either [Error] (Context, b)
+             -> Either Errors (Context, b)
   }
 type a ~> b = Parser a b
 
-run :: (a ~> b) -> a -> Either [Error] b
+run :: (a ~> b) -> a -> Either Errors b
 run (P p) x = snd <$> p Top x
-
--- | keys and indexes through json stored with deepest key/index nearest the head ctor
-data Context
-  = Top
-  | Key !ShortText !Context
-  | Idx !Int !Context
-  deriving (Eq,Show)
 
 data Error = Error
   { message :: !ShortText
   , context :: !Context
   } deriving (Eq,Show)
 
+data Errors
+  = ErrorsOne !Error
+  | ErrorsPlus !Errors !Errors
+  deriving (Eq,Show)
 
 object :: Value ~> Members
 object = P $ \ctx v -> case v of
   Object membs -> Right (ctx, Members membs)
-  _ -> Left [Error "expected object" ctx]
+  _ -> Left (ErrorsOne (Error "expected object" ctx))
 
 array :: Value ~> Elements
 array = P $ \ctx v -> case v of
   Array membs -> Right (ctx, Elements membs)
-  _ -> Left [Error "expected array" ctx]
+  _ -> Left (ErrorsOne (Error "expected array" ctx))
 
 string :: Value ~> ShortText
 string = P $ \ctx v -> case v of
   String str -> Right (ctx, str)
-  _ -> Left [Error "expected string" ctx]
+  _ -> Left (ErrorsOne (Error "expected string" ctx))
 
 -- | Parse an array of strings. For example:
 --
@@ -116,33 +124,33 @@ strings = P $ \ctx v -> case v of
     xs <- Arr.itraverseP
       (\ix e -> case e of
         String s -> pure s
-        _ -> ExceptT (pure (Left [Error "expected string" (Idx ix ctx)]))
+        _ -> ExceptT (pure (Left (ErrorsOne (Error "expected string" (Index ix ctx)))))
       ) membs
     pure (ctx, xs)
-  _ -> Left [Error "expected array" ctx]
+  _ -> Left (ErrorsOne (Error "expected array" ctx))
 
 number :: Value ~> Scientific
 number = P $ \ctx v -> case v of
   Number n -> Right (ctx, n)
-  _ -> Left [Error "expected number" ctx]
+  _ -> Left (ErrorsOne (Error "expected number" ctx))
 
 boolean :: Value ~> Bool
 boolean = P $ \ctx v -> case v of
   Json.True -> Right (ctx, True)
   Json.False -> Right (ctx, False)
-  _  -> Left [Error "expected boolean" ctx]
+  _  -> Left (ErrorsOne (Error "expected boolean" ctx))
 
 null :: Value ~> ()
 null = P $ \ctx v -> case v of
   Json.Null -> Right (ctx, ())
-  _ -> Left [Error "expected null" ctx]
+  _ -> Left (ErrorsOne (Error "expected null" ctx))
 
 newtype Members = Members { unMembers :: SmallArray Member }
 
 member :: ShortText -> Members ~> Value
 member k = P $ \ctx xs -> case find keyEq (unMembers xs) of
   Just Member{value} -> Right (Key k ctx, value)
-  Nothing -> Left [Error ("key not found: " <> k) ctx]
+  Nothing -> Left (ErrorsOne (Error ("key not found: " <> k) ctx))
   where
   keyEq Member{key} = k == key
 
@@ -166,7 +174,7 @@ foldl' z0 f = P $ \ctx elems ->
   let xs = unElements elems
       loop !z !i =
         if i < Arr.size xs
-        then case unParser (f z) (Idx i ctx) (Arr.index xs i) of
+        then case unParser (f z) (Index i ctx) (Arr.index xs i) of
           Right (_, z') -> loop z' (i + 1)
           Left err -> Left err
         else Right (ctx, z)
@@ -177,7 +185,7 @@ map (P p) = P $ \ctx (Elements xs) -> runST $ do
   let !len = length xs
   dst <- Arr.new len
   let loop !i = if i < len
-        then case p (Idx i ctx) (Arr.index xs i) of
+        then case p (Index i ctx) (Arr.index xs i) of
           Right (_, y) -> do
             Arr.write dst i y
             loop (i + 1)
@@ -227,7 +235,7 @@ instance ArrowPlus Parser where
     Right success -> Right success
     Left errLeft -> case q ctx x of
       Right success -> Right success
-      Left errRight -> Left $ errLeft ++ errRight
+      Left errRight -> Left $! ErrorsPlus errLeft errRight
 
 instance ArrowChoice Parser where
   (P p) +++ (P q) = P $ \ctx -> \case
@@ -242,10 +250,10 @@ instance ArrowApply Parser where
   app = P $ \ctx (p, x) -> unParser p ctx x
 
 fail :: ShortText -> a ~> b
-fail msg = P $ \ctx _ -> Left [Error msg ctx]
+fail msg = P $ \ctx _ -> Left (ErrorsOne (Error msg ctx))
 
 failZero :: a ~> b
-failZero = P $ \ctx _ -> Left [Error "" ctx]
+failZero = P $ \ctx _ -> Left (ErrorsOne (Error "" ctx))
 
 liftMaybe ::
      ShortText -- ^ Message to display on decode error
@@ -253,7 +261,7 @@ liftMaybe ::
   -> a ~> b
 liftMaybe msg f = P $ \ctx x -> case f x of
   Just y -> Right (ctx, y)
-  Nothing -> Left [Error msg ctx]
+  Nothing -> Left (ErrorsOne (Error msg ctx))
 
 withObject :: (Members ~> a) -> Value ~> a
 withObject membParser = object >>> membParser
@@ -279,13 +287,49 @@ errorToUtf8 (Error msg ctx)
   <> Builder.ascii2 ':' ' '
   <> Builder.shortTextUtf8 msg
 
+encodeErrors :: Errors -> ShortText
+encodeErrors p =
+  ba2st (ByteChunks.concatU (Builder.run 128 (errorsToUtf8 p)))
+
+errorsToUtf8 :: Errors -> Builder
+errorsToUtf8 errs =
+  let len = countErrors errs
+      errArr = makeErrorArray len errs
+   in errorToUtf8 (PM.indexSmallArray errArr 0)
+      <>
+      Arr.foldMap
+        (\e -> Builder.ascii2 ',' ' ' <> errorToUtf8 e)
+        (Arr.slice errArr 1 (len - 1))
+
+makeErrorArrayErrorThunk :: a
+{-# noinline makeErrorArrayErrorThunk #-}
+makeErrorArrayErrorThunk =
+  errorWithoutStackTrace "Json.Arrow.makeErrorArray: implementation mistake"
+
+makeErrorArray :: Int -> Errors -> SmallArray Error
+makeErrorArray !len errs0 = runST $ do
+  dst <- PM.newSmallArray len makeErrorArrayErrorThunk
+  let go !ix errs = case errs of
+        ErrorsOne e -> do
+          PM.writeSmallArray dst ix e
+          pure (ix + 1)
+        ErrorsPlus a b -> do
+          ix' <- go ix a
+          go ix' b
+  !finalIx <- go 0 errs0
+  if finalIx == len
+    then PM.unsafeFreezeSmallArray dst
+    else errorWithoutStackTrace "Json.Arrow.makeErrorArray: other impl mistake"
+
+-- postcondition: results is greater than 0.
+countErrors :: Errors -> Int
+countErrors = go where
+  go ErrorsOne{} = 1
+  go (ErrorsPlus a b) = go a + go b
+
 contextToUtf8 :: Context -> Builder
-contextToUtf8 ctx0 = Builder.ascii '$' <> go ctx0
-  where
-  go Top = mempty
-  go (Key k ctx) = go ctx <> Builder.ascii '.' <> Builder.shortTextUtf8 k
-  go (Idx i ctx) =
-       go ctx
-    <> Builder.ascii '['
-    <> Builder.wordDec (fromIntegral i)
-    <> Builder.ascii ']'
+contextToUtf8 ctx0 = Path.builderUtf8 (Context.toPath ctx0)
+
+ba2st :: PM.ByteArray -> ShortText
+{-# inline ba2st #-}
+ba2st (PM.ByteArray x) = TS.fromShortByteStringUnsafe (SBS x)

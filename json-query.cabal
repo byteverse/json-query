@@ -19,6 +19,7 @@ extra-source-files: CHANGELOG.md
 library
   exposed-modules:
     Json.Arrow
+    Json.Context
     Json.Parser
     Json.Path
   build-depends:
