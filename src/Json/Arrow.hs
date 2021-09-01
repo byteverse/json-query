@@ -28,6 +28,7 @@ module Json.Arrow
   -- ** Object Members
   , Members
   , member
+  , memberOpt
   , foldMembers
   -- ** Array Elements
   , Elements
@@ -151,6 +152,14 @@ member :: ShortText -> Members ~> Value
 member k = P $ \ctx xs -> case find keyEq (unMembers xs) of
   Just Member{value} -> Right (Key k ctx, value)
   Nothing -> Left (ErrorsOne (Error ("key not found: " <> k) ctx))
+  where
+  keyEq Member{key} = k == key
+
+-- | An optional member. Returns Nothing if the value is missing.
+memberOpt :: ShortText -> Members ~> Maybe Value
+memberOpt k = P $ \ctx xs -> case find keyEq (unMembers xs) of
+  Just Member{value} -> Right (Key k ctx, Just value)
+  Nothing -> Right (ctx, Nothing)
   where
   keyEq Member{key} = k == key
 
