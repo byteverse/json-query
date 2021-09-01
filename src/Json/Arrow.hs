@@ -16,6 +16,7 @@ module Json.Arrow
   , object
   , array
   , string
+  , strings
   , number
   , boolean
   , null
@@ -48,10 +49,12 @@ import Control.Arrow (Arrow(..))
 import Control.Arrow (ArrowZero(..),ArrowPlus(..),ArrowChoice(..),ArrowApply(..))
 import Control.Category (Category(..))
 import Control.Monad.ST (runST)
+import Control.Monad.Trans.Except (ExceptT(ExceptT),runExceptT)
 import Data.Bytes.Builder (Builder)
 import Data.List (find)
 import Data.Number.Scientific (Scientific)
 import Data.Primitive (SmallArray)
+import Data.Primitive.Unlifted.Array (UnliftedArray)
 import Data.Profunctor (Profunctor(..))
 import Data.Text.Short (ShortText)
 import Data.Word (Word16,Word64)
@@ -100,6 +103,23 @@ string :: Value ~> ShortText
 string = P $ \ctx v -> case v of
   String str -> Right (ctx, str)
   _ -> Left [Error "expected string" ctx]
+
+-- | Parse an array of strings. For example:
+--
+-- > ["hello","world"]
+--
+-- Failure context includes the index of non-string value if any values in
+-- the array are not strings.
+strings :: Value ~> UnliftedArray ShortText
+strings = P $ \ctx v -> case v of
+  Array membs -> runST $ runExceptT $ do
+    xs <- Arr.itraverseP
+      (\ix e -> case e of
+        String s -> pure s
+        _ -> ExceptT (pure (Left [Error "expected string" (Idx ix ctx)]))
+      ) membs
+    pure (ctx, xs)
+  _ -> Left [Error "expected array" ctx]
 
 number :: Value ~> Scientific
 number = P $ \ctx v -> case v of
