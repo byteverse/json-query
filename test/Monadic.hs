@@ -10,13 +10,16 @@ module Monadic
 
 import Control.Monad ((>=>))
 import DogHouse(Dog(..),House(..))
-import Json.Parser (MemberParser,Multipath(..))
-import Json.Path (Path(Key,Index,Nil))
+import Json.Parser (MemberParser)
+import Json.Errors (Errors)
+import Json.Error (Error(..))
+import Json.Context (Context(Key,Index,Top))
 
 import qualified Json
+import qualified Json.Errors as Errors
 import qualified Json.Parser as P
 
-decode :: Json.Value -> Either Multipath House
+decode :: Json.Value -> Either Errors House
 decode v = P.run (P.object v >>= P.members houseMemberParser)
 
 houseMemberParser :: MemberParser House
@@ -35,5 +38,8 @@ dogMemberParser = do
   alive <- P.key "alive" P.boolean
   pure Dog{name,age,alive}
 
-expectationBad :: Either Multipath House
-expectationBad = Left $ Multipath [Key "dogs" $ Index 1 $ Key "age" $ Nil]
+expectationBad :: Either Errors House
+expectationBad = Left $ Errors.singleton $ Error
+  { context = Key "age" $ Index 1 $ Key "dogs" $ Top
+  , message = "expected number"
+  }

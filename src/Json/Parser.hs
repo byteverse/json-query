@@ -7,11 +7,11 @@
 {-# language LambdaCase #-}
 {-# language NamedFieldPuns #-}
 {-# language RankNTypes #-}
+{-# language OverloadedStrings #-}
 
 module Json.Parser
   ( Parser(..)
   , MemberParser(..)
-  , Multipath(..)
     -- * Run
   , run
     -- * Object Parsing
@@ -49,15 +49,18 @@ import Data.Primitive (SmallArray)
 import Data.Text.Short (ShortText)
 import Data.Word (Word16,Word64)
 import Json (Value(Object,Array,Number),Member(Member))
-import Json.Path (Path(Nil,Key,Index))
+-- import Json.Path (Path(Nil,Key,Index))
+import Json.Context (Context(Top,Key,Index))
+import Json.Errors (Errors)
+import Json.Error (Error(..))
 
 import qualified Data.Number.Scientific as SCI
 import qualified Data.Primitive as PM
 import qualified Json
-import qualified Json.Path as Path
+import qualified Json.Errors as Errors
 
 newtype Parser a = Parser
-  { runParser :: Path -> Either Multipath a }
+  { runParser :: Context -> Either Errors a }
   deriving stock Functor
 
 instance Applicative Parser where
@@ -68,12 +71,12 @@ instance Applicative Parser where
     pure (h y)
 
 instance Alternative Parser where
-  empty = fail
+  empty = fail mempty
   f <|> g = Parser $ \p -> case runParser f p of
     Right x -> Right x
-    Left (Multipath aErrs) -> case runParser g p of
+    Left aErrs -> case runParser g p of
       Right y -> Right y
-      Left (Multipath bErrs) -> Left (Multipath $ aErrs ++ bErrs)
+      Left bErrs -> Left (aErrs <> bErrs)
 
 instance Monad Parser where
   Parser f >>= g = Parser $ \p -> do
@@ -81,7 +84,7 @@ instance Monad Parser where
     runParser (g x) p
 
 newtype MemberParser a = MemberParser
-  { runMemberParser :: Path -> SmallArray Member -> Either Multipath a }
+  { runMemberParser :: Context -> SmallArray Member -> Either Errors a }
   deriving stock Functor
 
 instance Applicative MemberParser where
@@ -92,13 +95,13 @@ instance Applicative MemberParser where
     pure (h y)
 
 instance Alternative MemberParser where
-  empty = MemberParser $ \p _ -> Left $ Multipath [p]
+  empty = MemberParser $ \p _ -> Left (Errors.singleton Error{message=mempty,context=p})
   a <|> b = MemberParser $ \p mbrs ->
     case runMemberParser a p mbrs of
       Right x -> Right x
-      Left (Multipath aErrs) -> case runMemberParser b p mbrs of
+      Left aErrs -> case runMemberParser b p mbrs of
         Right y -> Right y
-        Left (Multipath bErrs) -> Left (Multipath $ aErrs ++ bErrs)
+        Left bErrs -> Left (aErrs <> bErrs)
 
 instance Monad MemberParser where
   parser >>= k = MemberParser $ \p mbrs ->
@@ -106,23 +109,23 @@ instance Monad MemberParser where
       Left p' -> Left p'
       Right x -> runMemberParser (k x) p mbrs
 
-run :: Parser a -> Either Multipath a
-run (Parser f) = case f Nil of
+run :: Parser a -> Either Errors a
+run (Parser f) = case f Top of
   Right a -> Right a
-  Left e -> Left (reverseMultipath e)
+  Left e -> Left e
 
-fail :: Parser a
-fail = Parser (\e -> Left $ Multipath [e])
+fail :: ShortText -> Parser a
+fail !msg = Parser (\e -> Left (Errors.singleton Error{context=e,message=msg}))
 
 object :: Value -> Parser (SmallArray Member)
 object = \case
   Object xs -> pure xs
-  _ -> fail
+  _ -> fail "expected object"
 
 array :: Value -> Parser (SmallArray Value)
 array = \case
   Array xs -> pure xs
-  _ -> fail
+  _ -> fail "expected array"
 
 members :: MemberParser a -> SmallArray Member -> Parser a
 members (MemberParser f) mbrs = Parser (\p -> f p mbrs)
@@ -130,33 +133,33 @@ members (MemberParser f) mbrs = Parser (\p -> f p mbrs)
 number :: Value -> Parser Scientific
 number = \case
   Number n -> pure n
-  _ -> fail
+  _ -> fail "expected number"
 
 string :: Value -> Parser ShortText
 string = \case
   Json.String n -> pure n
-  _ -> fail
+  _ -> fail "expected string"
 
 int :: Scientific -> Parser Int
 int m = case SCI.toInt m of
   Just n -> pure n
-  _ -> fail
+  _ -> fail "expected number in signed machine integer range"
 
 word16 :: Scientific -> Parser Word16
 word16 m = case SCI.toWord16 m of
   Just n -> pure n
-  _ -> fail
+  _ -> fail "expected number in range [0,2^16)"
 
 word64 :: Scientific -> Parser Word64
 word64 m = case SCI.toWord64 m of
   Just n -> pure n
-  _ -> fail
+  _ -> fail "expected number in range [0,2^64)"
 
 boolean :: Value -> Parser Bool
 boolean = \case
   Json.True -> pure True
   Json.False -> pure False
-  _ -> fail
+  _ -> fail "expected boolean"
 
 -- members :: Parser Value (Chunks Member)
 -- members = _
@@ -165,7 +168,7 @@ key :: ShortText -> (Value -> Parser a) -> MemberParser a
 key !name f = MemberParser $ \p mbrs ->
   let !p' = Key name p in
   case find (\Member{key=k} -> k == name) mbrs of
-    Nothing -> Left $ Multipath [p']
+    Nothing -> Left (Errors.singleton (Error{context=p',message="key not found: " <> name}))
     Just Member{value} -> runParser (f value) p'
 
 -- object2 ::
@@ -212,17 +215,10 @@ errorThunk :: a
 errorThunk = errorWithoutStackTrace "Json.Parser: implementation mistake"
 
 -- | Run a parser in a modified context.
-contextually :: (Path -> Path) -> Parser a -> Parser a
+contextually :: (Context -> Context) -> Parser a -> Parser a
 {-# inline contextually #-}
 contextually f (Parser g) = Parser
   (\p ->
     let !p' = f p
      in g p'
   )
-
-
-newtype Multipath = Multipath { getMultipath :: [Path] }
-  deriving (Show, Eq)
-
-reverseMultipath :: Multipath -> Multipath
-reverseMultipath (Multipath ps) = Multipath (Path.reverse <$> ps)
