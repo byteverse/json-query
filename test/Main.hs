@@ -1,21 +1,28 @@
 {-# language LambdaCase #-}
+{-# language DuplicateRecordFields #-}
 {-# language OverloadedStrings #-}
 
+import Control.Arrow ((>>>))
+import Data.Bifunctor (first)
 import Data.Bytes (Bytes)
+import Json.Error (Error(Error))
 import Json.Path (Path(Key,Index,Nil))
 import Test.Tasty (defaultMain,testGroup,TestTree)
 import Test.Tasty.HUnit ((@=?))
-import Control.Arrow ((>>>))
 
+import qualified GHC.Exts as Exts
 import qualified Data.Bytes as Bytes
 import qualified Json
+import qualified Json.Context as Ctx
 import qualified Json.Path as Path
 import qualified Json.Arrow as A
+import qualified Json.Errors as Errors
 import qualified Test.Tasty.HUnit as THU
 
 import qualified Arrowy
 import qualified DogHouse
 import qualified Monadic
+import qualified Json.Error
 
 main :: IO ()
 main = defaultMain tests
@@ -54,24 +61,26 @@ tests = testGroup "Tests"
   , THU.testCase "DogHouse-Arrowy-B" $ case Json.decode DogHouse.sampleBad of
       Left _ -> fail "failed to parse into syntax tree" 
       Right val ->
-        Arrowy.expectationBad
+        Left Arrowy.badErrors
         @=?
         Arrowy.decode val
   , THU.testCase "Arrowy-strings-A" $ case Json.decode sampleArrowyStrings of
       Left _ -> fail "failed to parse into syntax tree" 
       Right val ->
         Left
-          ( A.ErrorsOne A.Error
-            { A.context = A.Index 2 (A.Key "foo" A.Top)
-            , A.message = "expected string"
-            }
+          ( Exts.fromList
+            [ Error
+              { context = Ctx.Index 2 (Ctx.Key "foo" Ctx.Top)
+              , message = "expected string"
+              }
+            ]
           )
         @=?
-        A.run (A.object >>> A.member "foo" >>> A.strings) val
+        first Errors.toSmallArray (A.run (A.object >>> A.member "foo" >>> A.strings) val)
   , THU.testCase "Arrowy-encode-errors" $
       "$.dogs[1].age: expected number, $.dogs[1].age: expected null"
       @=?
-      A.encodeErrors Arrowy.badErrors
+      Errors.encode Arrowy.badErrors
   ]
 
 sampleArrowyStrings :: Bytes
