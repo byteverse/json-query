@@ -20,6 +20,8 @@ library
   exposed-modules:
     Json.Arrow
     Json.Context
+    Json.Error
+    Json.Errors
     Json.Parser
     Json.Path
   build-depends:

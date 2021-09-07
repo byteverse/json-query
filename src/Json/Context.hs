@@ -2,11 +2,15 @@
 
 module Json.Context
   ( Context(..)
+    -- * Encoding
+  , builderUtf8
+    -- * Conversion
   , toPath
   ) where
 
 import Json.Path (Path)
 import Data.Text.Short (ShortText)
+import Data.Bytes.Builder (Builder)
 
 import qualified Json.Path as Path
 
@@ -32,3 +36,8 @@ toPath = go Path.Nil where
   go !acc Top = acc
   go !acc (Key k xs) = go (Path.Key k acc) xs
   go !acc (Index i xs) = go (Path.Index i acc) xs
+
+-- | Convert 'Context' to textual representation using UTF-8 as the encoding
+-- scheme. This reverses the context to present it in the expected order.
+builderUtf8 :: Context -> Builder
+builderUtf8 ctx0 = Path.builderUtf8 (toPath ctx0)
