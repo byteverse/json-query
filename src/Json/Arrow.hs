@@ -19,7 +19,7 @@ module Json.Arrow
   , boolean
   , null
   -- ** Object Members
-  , Members
+  , Members(..)
   , member
   , memberOpt
   , foldMembers
