@@ -1,5 +1,9 @@
 # Revision history for json-query
 
+## 0.2.1.0 -- 2021-??-??
+
+* Export `unMembers`
+
 ## 0.2.0.0 -- 2021-09-07
 
 * Add `Monad` implementation for `MemberParser`.
