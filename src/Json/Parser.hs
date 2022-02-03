@@ -16,6 +16,7 @@ module Json.Parser
   , run
     -- * Object Parsing
   , key
+  , keyOptNull
   , members
     -- * Arrays
   , smallArray
@@ -170,6 +171,18 @@ key !name f = MemberParser $ \p mbrs ->
   case find (\Member{key=k} -> k == name) mbrs of
     Nothing -> Left (Errors.singleton (Error{context=p',message="key not found: " <> name}))
     Just Member{value} -> runParser (f value) p'
+
+-- | Variant of 'key' that supplies the JSON value @null to the
+-- callback if the key is not found. Using this parser combinators implies
+-- that there is no distinction between @null@ and an absent value in
+-- the encoding scheme.
+keyOptNull :: ShortText -> (Value -> Parser a) -> MemberParser a
+keyOptNull !name f = MemberParser $ \p mbrs ->
+  let !p' = Key name p
+      val = case find (\Member{key=k} -> k == name) mbrs of
+        Nothing -> Json.Null
+        Just Member{value} -> value
+   in runParser (f val) p'
 
 -- object2 ::
 --      (a -> b -> c)
