@@ -29,6 +29,7 @@ module Json.Parser
   , string
     -- * Trivial Combinators
   , int
+  , int32
   , word16
   , word64
     -- * Failing
@@ -44,6 +45,7 @@ import Control.Monad.ST (runST)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Except (ExceptT(ExceptT),runExceptT)
 import Data.Foldable (foldlM)
+import Data.Int (Int32)
 import Data.List (find)
 import Data.Number.Scientific (Scientific)
 import Data.Primitive (SmallArray)
@@ -145,6 +147,11 @@ int :: Scientific -> Parser Int
 int m = case SCI.toInt m of
   Just n -> pure n
   _ -> fail "expected number in signed machine integer range"
+
+int32 :: Scientific -> Parser Int32
+int32 m = case SCI.toInt32 m of
+  Just n -> pure n
+  _ -> fail "expected number in range [-2^31,2^31-1)"
 
 word16 :: Scientific -> Parser Word16
 word16 m = case SCI.toWord16 m of
