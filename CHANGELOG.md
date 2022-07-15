@@ -1,7 +1,8 @@
 # Revision history for json-query
 
-## 0.2.1.0 -- 2021-??-??
+## 0.2.1.0 -- 2021-07-15
 
+* Allow building with GHC 9.2.3
 * Export `unMembers`
 
 ## 0.2.0.0 -- 2021-09-07
