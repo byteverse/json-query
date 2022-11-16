@@ -10,18 +10,20 @@ module Json.Errors
     -- * Encoding
   , encode
   , builderUtf8
+  , hPut
     -- * Create
   , singleton
     -- * Conversion
   , toSmallArray
   ) where
 
+import Control.Monad.ST (runST)
+import Data.ByteString.Short.Internal (ShortByteString(SBS))
 import Data.Bytes.Builder (Builder)
 import Data.Primitive (SmallArray)
 import Data.Text.Short (ShortText)
-import Data.ByteString.Short.Internal (ShortByteString(SBS))
-import Control.Monad.ST (runST)
 import Json.Error (Error)
+import System.IO (Handle)
 
 import qualified Data.Bytes.Builder as Builder
 import qualified Data.Bytes.Chunks as ByteChunks
@@ -48,6 +50,8 @@ instance Eq Errors where
 singleton :: Error -> Errors
 singleton = ErrorsOne
 
+-- | Convert errors to builder. The errors are separated by
+-- a pair of characters: comma and space.
 builderUtf8 :: Errors -> Builder
 builderUtf8 errs =
   let len = countErrors errs
@@ -57,6 +61,20 @@ builderUtf8 errs =
       Arr.foldMap
         (\e -> Builder.ascii2 ',' ' ' <> Error.builderUtf8 e)
         (Arr.slice errArr 1 (len - 1))
+
+-- | Print errors to the provided handle. Typically, @System.IO.stderr@
+-- is provided as the handle. Each encoded error is suffixed with a newline.
+--
+-- This is a convenience function for the common case where, after a
+-- failed parse, an application prints out all parse errors and then exits.
+hPut :: Handle -> Errors -> IO ()
+hPut h errs = do
+  let len = countErrors errs
+      errArr = makeErrorArray len errs
+      bldr = Arr.foldMap
+        (\e -> Error.builderUtf8 e <> Builder.ascii '\n')
+        errArr
+   in ByteChunks.hPut h (Builder.run 128 bldr)
 
 -- | Convert errors to array.
 toSmallArray :: Errors -> SmallArray Error

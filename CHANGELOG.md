@@ -1,5 +1,10 @@
 # Revision history for json-query
 
+## 0.2.2.0 -- 2022-??-??
+
+* Add `Json.Errors.hPut` to make it less verbose to print
+  parse errors.
+
 ## 0.2.1.0 -- 2021-07-15
 
 * Allow building with GHC 9.2.3
