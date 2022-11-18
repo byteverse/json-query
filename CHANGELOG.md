@@ -4,6 +4,7 @@
 
 * Add `Json.Errors.hPut` to make it less verbose to print
   parse errors.
+* Add `Json.Parser.foldSmallArray`
 
 ## 0.2.1.0 -- 2021-07-15
 

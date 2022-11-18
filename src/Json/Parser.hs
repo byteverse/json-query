@@ -20,6 +20,7 @@ module Json.Parser
   , members
     -- * Arrays
   , smallArray
+  , foldSmallArray
   , traverseMembers
     -- * Specific Data Constructors
   , object
@@ -215,6 +216,21 @@ smallArray f xs = Parser $ \ !p -> runST do
         pure (ix + 1)
       ) 0 xs
     lift (PM.unsafeFreezeSmallArray dst)
+
+-- | Run the parser against every element in a 'SmallArray', updating an
+-- accumulator at each step. Folds from left to right. This adjusts
+-- the context at each element. Typically, type @a@ is @Value@.
+foldSmallArray :: (b -> a -> Parser b) -> b -> SmallArray a -> Parser b
+{-# inline foldSmallArray #-}
+foldSmallArray f acc0 xs = Parser $ \ !p -> runST do
+  -- TODO: make sure tuples get elided
+  runExceptT $ do
+    (!_,r) <- foldlM
+      (\( !ix, !acc) x -> do
+        !acc' <- ExceptT (pure (runParser (f acc x) (Index ix p)))
+        pure (ix + 1, acc')
+      ) (0,acc0) xs
+    pure r
 
 -- | Traverse the members. The adjusts the context at each member.
 traverseMembers :: (Member -> Parser a) -> SmallArray Member -> Parser (SmallArray a)
