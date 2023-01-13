@@ -9,13 +9,14 @@ module Json.Path
   , builderUtf8
     -- * Lookup
   , query
+  , query'
     -- * Reverse
   , reverse
   ) where
 
 import Prelude hiding (reverse)
 
-import Json (Value(Object,Array),Member(Member))
+import Json (Value(Object,Array,Null),Member(Member))
 import Data.Primitive (ByteArray(ByteArray))
 import Data.Text.Short (ShortText)
 import Data.Bytes.Builder (Builder)
@@ -53,7 +54,8 @@ builderUtf8 p0 = Builder.ascii '$' <> go p0 where
     <> Builder.ascii ']'
     <> go p
 
--- | Search for an element at the given path.
+-- | Search for an element at the given path. Returns 'Nothing' if
+-- anything in the path is missing.
 query :: Path -> Value -> Maybe Value
 query = go where
   go Nil v = Just v
@@ -68,6 +70,23 @@ query = go where
        in go p e
     else Nothing
   go _ _ = Nothing
+
+-- | Variant of 'query' that returns 'Null' if anything in the path
+-- is missing.
+query' :: Path -> Value -> Value
+query' = go where
+  go Nil v = v
+  go (Key k p) (Object mbrs) = go p $ foldr
+    (\(Member key val) other -> if key == k
+      then val
+      else other
+    ) Null mbrs
+  go (Index i p) (Array vs) = if i < PM.sizeofSmallArray vs
+    then
+      let !(# e #) = PM.indexSmallArray## vs i
+       in go p e
+    else Null
+  go _ _ = Null
 
 ba2st :: ByteArray -> ShortText
 ba2st (ByteArray x) = TS.fromShortByteStringUnsafe (SBS x)

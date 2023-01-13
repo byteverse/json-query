@@ -180,7 +180,7 @@ key !name f = MemberParser $ \p mbrs ->
     Nothing -> Left (Errors.singleton (Error{context=p',message="key not found: " <> name}))
     Just Member{value} -> runParser (f value) p'
 
--- | Variant of 'key' that supplies the JSON value @null to the
+-- | Variant of 'key' that supplies the JSON value @null@ to the
 -- callback if the key is not found. Using this parser combinators implies
 -- that there is no distinction between @null@ and an absent value in
 -- the encoding scheme.
