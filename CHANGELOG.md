@@ -1,10 +1,12 @@
 # Revision history for json-query
 
-## 0.2.2.0 -- 2022-??-??
+## 0.2.2.0 -- 2023-08-09
 
 * Add `Json.Errors.hPut` to make it less verbose to print
   parse errors.
 * Add `Json.Parser.foldSmallArray`
+* Add variant of `Json.Path.query` that returns Null when path is
+  not found.
 
 ## 0.2.1.0 -- 2021-07-15
 
