@@ -1,0 +1,14 @@
+name: pull request x64
+
+on:
+  pull_request:
+    branches:
+      - "*"
+
+jobs:
+  call-workflow:
+    uses: layer-3-communications/.github/.github/workflows/build-haskell.yaml@main
+    with:
+      build-arch: x64
+      slack-name: ${{ github.event.pull_request.head.ref }}
+    secrets: inherit

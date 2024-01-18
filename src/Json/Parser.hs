@@ -1,62 +1,70 @@
-{-# language BangPatterns #-}
-{-# language BlockArguments #-}
-{-# language DeriveFunctor #-}
-{-# language DerivingStrategies #-}
-{-# language DuplicateRecordFields #-}
-{-# language KindSignatures #-}
-{-# language LambdaCase #-}
-{-# language NamedFieldPuns #-}
-{-# language RankNTypes #-}
-{-# language OverloadedStrings #-}
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
 
 module Json.Parser
-  ( Parser(..)
-  , MemberParser(..)
+  ( Parser (..)
+  , MemberParser (..)
+
     -- * Run
   , run
+
     -- * Object Parsing
   , key
   , keyOptNull
   , members
+
     -- * Arrays
   , smallArray
   , foldSmallArray
   , traverseMembers
+
     -- * Specific Data Constructors
   , object
   , array
   , number
   , boolean
   , string
+
     -- * Trivial Combinators
   , int
   , int32
   , word16
   , word64
+
     -- * Failing
   , fail
-    -- * Modified Context 
+
+    -- * Modified Context
   , contextually
   ) where
 
 import Prelude hiding (fail)
 
-import Control.Applicative (Alternative(..))
+import Control.Applicative (Alternative (..))
 import Control.Monad.ST (runST)
 import Control.Monad.Trans.Class (lift)
-import Control.Monad.Trans.Except (ExceptT(ExceptT),runExceptT)
+import Control.Monad.Trans.Except (ExceptT (ExceptT), runExceptT)
 import Data.Foldable (foldlM)
 import Data.Int (Int32)
 import Data.List (find)
 import Data.Number.Scientific (Scientific)
 import Data.Primitive (SmallArray)
 import Data.Text.Short (ShortText)
-import Data.Word (Word16,Word64)
-import Json (Value(Object,Array,Number),Member(Member))
+import Data.Word (Word16, Word64)
+import Json (Member (Member), Value (Array, Number, Object))
+
 -- import Json.Path (Path(Nil,Key,Index))
-import Json.Context (Context(Top,Key,Index))
+import Json.Context (Context (Index, Key, Top))
+import Json.Error (Error (..))
 import Json.Errors (Errors)
-import Json.Error (Error(..))
 
 import qualified Data.Number.Scientific as SCI
 import qualified Data.Primitive as PM
@@ -64,8 +72,8 @@ import qualified Json
 import qualified Json.Errors as Errors
 
 newtype Parser a = Parser
-  { runParser :: Context -> Either Errors a }
-  deriving stock Functor
+  {runParser :: Context -> Either Errors a}
+  deriving stock (Functor)
 
 instance Applicative Parser where
   pure a = Parser (\_ -> Right a)
@@ -88,8 +96,8 @@ instance Monad Parser where
     runParser (g x) p
 
 newtype MemberParser a = MemberParser
-  { runMemberParser :: Context -> SmallArray Member -> Either Errors a }
-  deriving stock Functor
+  {runMemberParser :: Context -> SmallArray Member -> Either Errors a}
+  deriving stock (Functor)
 
 instance Applicative MemberParser where
   pure a = MemberParser (\_ _ -> Right a)
@@ -99,7 +107,7 @@ instance Applicative MemberParser where
     pure (h y)
 
 instance Alternative MemberParser where
-  empty = MemberParser $ \p _ -> Left (Errors.singleton Error{message=mempty,context=p})
+  empty = MemberParser $ \p _ -> Left (Errors.singleton Error {message = mempty, context = p})
   a <|> b = MemberParser $ \p mbrs ->
     case runMemberParser a p mbrs of
       Right x -> Right x
@@ -119,7 +127,7 @@ run (Parser f) = case f Top of
   Left e -> Left e
 
 fail :: ShortText -> Parser a
-fail !msg = Parser (\e -> Left (Errors.singleton Error{context=e,message=msg}))
+fail !msg = Parser (\e -> Left (Errors.singleton Error {context = e, message = msg}))
 
 object :: Value -> Parser (SmallArray Member)
 object = \case
@@ -175,21 +183,22 @@ boolean = \case
 
 key :: ShortText -> (Value -> Parser a) -> MemberParser a
 key !name f = MemberParser $ \p mbrs ->
-  let !p' = Key name p in
-  case find (\Member{key=k} -> k == name) mbrs of
-    Nothing -> Left (Errors.singleton (Error{context=p',message="key not found: " <> name}))
-    Just Member{value} -> runParser (f value) p'
+  let !p' = Key name p
+   in case find (\Member {key = k} -> k == name) mbrs of
+        Nothing -> Left (Errors.singleton (Error {context = p', message = "key not found: " <> name}))
+        Just Member {value} -> runParser (f value) p'
 
--- | Variant of 'key' that supplies the JSON value @null@ to the
--- callback if the key is not found. Using this parser combinators implies
--- that there is no distinction between @null@ and an absent value in
--- the encoding scheme.
+{- | Variant of 'key' that supplies the JSON value @null@ to the
+callback if the key is not found. Using this parser combinators implies
+that there is no distinction between @null@ and an absent value in
+the encoding scheme.
+-}
 keyOptNull :: ShortText -> (Value -> Parser a) -> MemberParser a
 keyOptNull !name f = MemberParser $ \p mbrs ->
   let !p' = Key name p
-      val = case find (\Member{key=k} -> k == name) mbrs of
+      val = case find (\Member {key = k} -> k == name) mbrs of
         Nothing -> Json.Null
-        Just Member{value} -> value
+        Just Member {value} -> value
    in runParser (f val) p'
 
 -- object2 ::
@@ -197,39 +206,47 @@ keyOptNull !name f = MemberParser $ \p mbrs ->
 --   -> ShortText -> Parser a
 --   -> ShortText -> Parser b
 --   -> Parser c
--- object2 f ka pa kb pb = Parser $ \p v -> case v 
+-- object2 f ka pa kb pb = Parser $ \p v -> case v
 
 -- elements :: Parser Value (Chunks Value)
 -- elements = _
 
--- | Run the same parser against every element in a 'SmallArray'. This adjusts
--- the context at each element.
+{- | Run the same parser against every element in a 'SmallArray'. This adjusts
+the context at each element.
+-}
 smallArray :: (Value -> Parser a) -> SmallArray Value -> Parser (SmallArray a)
 smallArray f xs = Parser $ \ !p -> runST do
   let !len = length xs
   dst <- PM.newSmallArray len errorThunk
   runExceptT $ do
-    _ <- foldlM
-      (\ix x -> do
-        !y <- ExceptT (pure (runParser (f x) (Index ix p)))
-        lift (PM.writeSmallArray dst ix y)
-        pure (ix + 1)
-      ) 0 xs
+    _ <-
+      foldlM
+        ( \ix x -> do
+            !y <- ExceptT (pure (runParser (f x) (Index ix p)))
+            lift (PM.writeSmallArray dst ix y)
+            pure (ix + 1)
+        )
+        0
+        xs
     lift (PM.unsafeFreezeSmallArray dst)
 
--- | Run the parser against every element in a 'SmallArray', updating an
--- accumulator at each step. Folds from left to right. This adjusts
--- the context at each element. Typically, type @a@ is @Value@.
+{- | Run the parser against every element in a 'SmallArray', updating an
+accumulator at each step. Folds from left to right. This adjusts
+the context at each element. Typically, type @a@ is @Value@.
+-}
 foldSmallArray :: (b -> a -> Parser b) -> b -> SmallArray a -> Parser b
-{-# inline foldSmallArray #-}
+{-# INLINE foldSmallArray #-}
 foldSmallArray f acc0 xs = Parser $ \ !p -> runST do
   -- TODO: make sure tuples get elided
   runExceptT $ do
-    (!_,r) <- foldlM
-      (\( !ix, !acc) x -> do
-        !acc' <- ExceptT (pure (runParser (f acc x) (Index ix p)))
-        pure (ix + 1, acc')
-      ) (0,acc0) xs
+    (!_, r) <-
+      foldlM
+        ( \(!ix, !acc) x -> do
+            !acc' <- ExceptT (pure (runParser (f acc x) (Index ix p)))
+            pure (ix + 1, acc')
+        )
+        (0, acc0)
+        xs
     pure r
 
 -- | Traverse the members. The adjusts the context at each member.
@@ -238,23 +255,27 @@ traverseMembers f !xs = Parser $ \ !p -> runST do
   let !len = length xs
   dst <- PM.newSmallArray len errorThunk
   runExceptT $ do
-    !_ <- foldlM
-      (\ !ix x@Member{key=k} -> do
-        !y <- ExceptT (pure (runParser (f x) (Key k p)))
-        lift (PM.writeSmallArray dst ix y)
-        pure (ix + 1)
-      ) 0 xs
+    !_ <-
+      foldlM
+        ( \ !ix x@Member {key = k} -> do
+            !y <- ExceptT (pure (runParser (f x) (Key k p)))
+            lift (PM.writeSmallArray dst ix y)
+            pure (ix + 1)
+        )
+        0
+        xs
     lift (PM.unsafeFreezeSmallArray dst)
 
 errorThunk :: a
-{-# noinline errorThunk #-}
+{-# NOINLINE errorThunk #-}
 errorThunk = errorWithoutStackTrace "Json.Parser: implementation mistake"
 
 -- | Run a parser in a modified context.
 contextually :: (Context -> Context) -> Parser a -> Parser a
-{-# inline contextually #-}
-contextually f (Parser g) = Parser
-  (\p ->
-    let !p' = f p
-     in g p'
-  )
+{-# INLINE contextually #-}
+contextually f (Parser g) =
+  Parser
+    ( \p ->
+        let !p' = f p
+         in g p'
+    )
