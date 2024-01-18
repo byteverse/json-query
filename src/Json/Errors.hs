@@ -1,24 +1,25 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Json.Errors
   ( -- * Types
     Errors
+
     -- * Encoding
   , encode
   , builderUtf8
   , hPut
+
     -- * Create
   , singleton
+
     -- * Conversion
   , toSmallArray
   ) where
 
 import Control.Monad.ST (runST)
-import Data.ByteString.Short.Internal (ShortByteString(SBS))
+import Data.ByteString.Short.Internal (ShortByteString (SBS))
 import Data.Bytes.Builder (Builder)
 import Data.Primitive (SmallArray)
 import Data.Text.Short (ShortText)
@@ -50,30 +51,32 @@ instance Eq Errors where
 singleton :: Error -> Errors
 singleton = ErrorsOne
 
--- | Convert errors to builder. The errors are separated by
--- a pair of characters: comma and space.
+{- | Convert errors to builder. The errors are separated by
+a pair of characters: comma and space.
+-}
 builderUtf8 :: Errors -> Builder
 builderUtf8 errs =
   let len = countErrors errs
       errArr = makeErrorArray len errs
    in Error.builderUtf8 (PM.indexSmallArray errArr 0)
-      <>
-      Arr.foldMap
-        (\e -> Builder.ascii2 ',' ' ' <> Error.builderUtf8 e)
-        (Arr.slice errArr 1 (len - 1))
+        <> Arr.foldMap
+          (\e -> Builder.ascii2 ',' ' ' <> Error.builderUtf8 e)
+          (Arr.slice errArr 1 (len - 1))
 
--- | Print errors to the provided handle. Typically, @System.IO.stderr@
--- is provided as the handle. Each encoded error is suffixed with a newline.
---
--- This is a convenience function for the common case where, after a
--- failed parse, an application prints out all parse errors and then exits.
+{- | Print errors to the provided handle. Typically, @System.IO.stderr@
+is provided as the handle. Each encoded error is suffixed with a newline.
+
+This is a convenience function for the common case where, after a
+failed parse, an application prints out all parse errors and then exits.
+-}
 hPut :: Handle -> Errors -> IO ()
 hPut h errs = do
   let len = countErrors errs
       errArr = makeErrorArray len errs
-      bldr = Arr.foldMap
-        (\e -> Error.builderUtf8 e <> Builder.ascii '\n')
-        errArr
+      bldr =
+        Arr.foldMap
+          (\e -> Error.builderUtf8 e <> Builder.ascii '\n')
+          errArr
    in ByteChunks.hPut h (Builder.run 128 bldr)
 
 -- | Convert errors to array.
@@ -81,7 +84,7 @@ toSmallArray :: Errors -> SmallArray Error
 toSmallArray e = makeErrorArray (countErrors e) e
 
 makeErrorArrayErrorThunk :: a
-{-# noinline makeErrorArrayErrorThunk #-}
+{-# NOINLINE makeErrorArrayErrorThunk #-}
 makeErrorArrayErrorThunk =
   errorWithoutStackTrace "Json.Arrow.makeErrorArray: implementation mistake"
 
@@ -102,12 +105,13 @@ makeErrorArray !len errs0 = runST $ do
 
 -- postcondition: results is greater than 0.
 countErrors :: Errors -> Int
-countErrors = go where
-  go ErrorsOne{} = 1
+countErrors = go
+ where
+  go ErrorsOne {} = 1
   go (ErrorsPlus a b) = go a + go b
 
 ba2st :: PM.ByteArray -> ShortText
-{-# inline ba2st #-}
+{-# INLINE ba2st #-}
 ba2st (PM.ByteArray x) = TS.fromShortByteStringUnsafe (SBS x)
 
 encode :: Errors -> ShortText

@@ -8,9 +8,11 @@
 module Json.Arrow
   ( Parser
   , type (~>)
-  -- * Run Parser
+
+    -- * Run Parser
   , run
-  -- * Primitive Parsers
+
+    -- * Primitive Parsers
   , object
   , array
   , string
@@ -18,48 +20,51 @@ module Json.Arrow
   , number
   , boolean
   , null
-  -- ** Object Members
-  , Members(..)
+
+    -- ** Object Members
+  , Members (..)
   , member
   , memberOpt
   , foldMembers
-  -- ** Array Elements
+
+    -- ** Array Elements
   , Elements
   , foldl'
   , map
-  -- * Primitive Combinators
+
+    -- * Primitive Combinators
   , fail
   , failZero
-  -- * Trivial Combinators
+
+    -- * Trivial Combinators
   , withObject
   , withArray
   , fromNull
   , int
   , word16
   , word64
-  -- * Conversion
+
+    -- * Conversion
   , liftMaybe
   ) where
 
-import Prelude hiding (id, (.), fail, map, null)
+import Prelude hiding (fail, id, map, null, (.))
 
-import Control.Arrow ((>>>))
-import Control.Arrow (Arrow(..))
-import Control.Arrow (ArrowZero(..),ArrowPlus(..),ArrowChoice(..),ArrowApply(..))
-import Control.Category (Category(..))
+import Control.Arrow (Arrow (..), ArrowApply (..), ArrowChoice (..), ArrowPlus (..), ArrowZero (..), (>>>))
+import Control.Category (Category (..))
 import Control.Monad.ST (runST)
-import Control.Monad.Trans.Except (ExceptT(ExceptT),runExceptT)
+import Control.Monad.Trans.Except (ExceptT (ExceptT), runExceptT)
 import Data.List (find)
 import Data.Number.Scientific (Scientific)
 import Data.Primitive (SmallArray)
 import Data.Primitive.Unlifted.Array (UnliftedArray)
-import Data.Profunctor (Profunctor(..))
+import Data.Profunctor (Profunctor (..))
 import Data.Text.Short (ShortText)
-import Data.Word (Word16,Word64)
-import Json (Value(Object,Array,String,Number), Member(Member))
-import Json.Context (Context(..))
+import Data.Word (Word16, Word64)
+import Json (Member (Member), Value (Array, Number, Object, String))
+import Json.Context (Context (..))
+import Json.Error (Error (..))
 import Json.Errors (Errors)
-import Json.Error (Error(..))
 
 import qualified Data.Number.Scientific as SCI
 import qualified Data.Primitive.Contiguous as Arr
@@ -67,9 +72,12 @@ import qualified Json
 import qualified Json.Errors as Errors
 
 newtype Parser a b = P
-  { unParser :: Context -- ^ reverse list of json keys & indices that have been entered
-             -> a -- ^ value to parse
-             -> Either Errors (Context, b)
+  { unParser ::
+      Context ->
+      -- \^ reverse list of json keys & indices that have been entered
+      a ->
+      -- \^ value to parse
+      Either Errors (Context, b)
   }
 type a ~> b = Parser a b
 
@@ -91,20 +99,23 @@ string = P $ \ctx v -> case v of
   String str -> Right (ctx, str)
   _ -> Left (Errors.singleton (Error "expected string" ctx))
 
--- | Parse an array of strings. For example:
---
--- > ["hello","world"]
---
--- Failure context includes the index of non-string value if any values in
--- the array are not strings.
+{- | Parse an array of strings. For example:
+
+> ["hello","world"]
+
+Failure context includes the index of non-string value if any values in
+the array are not strings.
+-}
 strings :: Value ~> UnliftedArray ShortText
 strings = P $ \ctx v -> case v of
   Array membs -> runST $ runExceptT $ do
-    xs <- Arr.itraverseP
-      (\ix e -> case e of
-        String s -> pure s
-        _ -> ExceptT (pure (Left (Errors.singleton (Error "expected string" (Index ix ctx)))))
-      ) membs
+    xs <-
+      Arr.itraverseP
+        ( \ix e -> case e of
+            String s -> pure s
+            _ -> ExceptT (pure (Left (Errors.singleton (Error "expected string" (Index ix ctx)))))
+        )
+        membs
     pure (ctx, xs)
   _ -> Left (Errors.singleton (Error "expected array" ctx))
 
@@ -117,67 +128,68 @@ boolean :: Value ~> Bool
 boolean = P $ \ctx v -> case v of
   Json.True -> Right (ctx, True)
   Json.False -> Right (ctx, False)
-  _  -> Left (Errors.singleton (Error "expected boolean" ctx))
+  _ -> Left (Errors.singleton (Error "expected boolean" ctx))
 
 null :: Value ~> ()
 null = P $ \ctx v -> case v of
   Json.Null -> Right (ctx, ())
   _ -> Left (Errors.singleton (Error "expected null" ctx))
 
-newtype Members = Members { unMembers :: SmallArray Member }
+newtype Members = Members {unMembers :: SmallArray Member}
 
 member :: ShortText -> Members ~> Value
 member k = P $ \ctx xs -> case find keyEq (unMembers xs) of
-  Just Member{value} -> Right (Key k ctx, value)
+  Just Member {value} -> Right (Key k ctx, value)
   Nothing -> Left (Errors.singleton (Error ("key not found: " <> k) ctx))
-  where
-  keyEq Member{key} = k == key
+ where
+  keyEq Member {key} = k == key
 
 -- | An optional member. Returns Nothing if the value is missing.
 memberOpt :: ShortText -> Members ~> Maybe Value
 memberOpt k = P $ \ctx xs -> case find keyEq (unMembers xs) of
-  Just Member{value} -> Right (Key k ctx, Just value)
+  Just Member {value} -> Right (Key k ctx, Just value)
   Nothing -> Right (ctx, Nothing)
-  where
-  keyEq Member{key} = k == key
+ where
+  keyEq Member {key} = k == key
 
 foldMembers :: a -> (a -> Member ~> a) -> Members ~> a
 foldMembers z0 f = P $ \ctx membs ->
   let xs = unMembers membs
       loop !z !i =
         if i < Arr.size xs
-        then
-          let x@Member{key} = Arr.index xs i
-           in case unParser (f z) (Key key ctx) x of
-                Right (_, z') -> loop z' (i + 1)
-                Left err -> Left err
-        else Right (ctx, z)
+          then
+            let x@Member {key} = Arr.index xs i
+             in case unParser (f z) (Key key ctx) x of
+                  Right (_, z') -> loop z' (i + 1)
+                  Left err -> Left err
+          else Right (ctx, z)
    in loop z0 0
 
-newtype Elements = Elements { unElements :: SmallArray Value }
+newtype Elements = Elements {unElements :: SmallArray Value}
 
 foldl' :: a -> (a -> Value ~> a) -> Elements ~> a
 foldl' z0 f = P $ \ctx elems ->
   let xs = unElements elems
       loop !z !i =
         if i < Arr.size xs
-        then case unParser (f z) (Index i ctx) (Arr.index xs i) of
-          Right (_, z') -> loop z' (i + 1)
-          Left err -> Left err
-        else Right (ctx, z)
+          then case unParser (f z) (Index i ctx) (Arr.index xs i) of
+            Right (_, z') -> loop z' (i + 1)
+            Left err -> Left err
+          else Right (ctx, z)
    in loop z0 0
 
 map :: (Value ~> a) -> Elements ~> SmallArray a
 map (P p) = P $ \ctx (Elements xs) -> runST $ do
   let !len = length xs
   dst <- Arr.new len
-  let loop !i = if i < len
-        then case p (Index i ctx) (Arr.index xs i) of
-          Right (_, y) -> do
-            Arr.write dst i y
-            loop (i + 1)
-          Left err -> pure $ Left err
-        else pure $ Right ()
+  let loop !i =
+        if i < len
+          then case p (Index i ctx) (Arr.index xs i) of
+            Right (_, y) -> do
+              Arr.write dst i y
+              loop (i + 1)
+            Left err -> pure $ Left err
+          else pure $ Right ()
   loop 0 >>= \case
     Right _ -> do
       ys <- Arr.unsafeFreeze dst
@@ -243,9 +255,11 @@ failZero :: a ~> b
 failZero = P $ \ctx _ -> Left (Errors.singleton (Error "" ctx))
 
 liftMaybe ::
-     ShortText -- ^ Message to display on decode error
-  -> (a -> Maybe b) -- ^ Decode function
-  -> a ~> b
+  -- | Message to display on decode error
+  ShortText ->
+  -- | Decode function
+  (a -> Maybe b) ->
+  a ~> b
 liftMaybe msg f = P $ \ctx x -> case f x of
   Just y -> Right (ctx, y)
   Nothing -> Left (Errors.singleton (Error msg ctx))

@@ -1,0 +1,18 @@
+name: main arm64
+
+on:
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+    branches:
+      - main
+
+jobs:
+  call-workflow:
+    uses: layer-3-communications/.github/.github/workflows/build-haskell.yaml@main
+    with:
+      build-arch: arm64
+      slack-name: ${{ github.ref_name }}
+    secrets: inherit
