@@ -37,6 +37,7 @@ module Json.Parser
   , int
   , int32
   , word16
+  , word32
   , word64
 
     -- * Failing
@@ -58,7 +59,7 @@ import Data.List (find)
 import Data.Number.Scientific (Scientific)
 import Data.Primitive (SmallArray)
 import Data.Text.Short (ShortText)
-import Data.Word (Word16, Word64)
+import Data.Word (Word16, Word32, Word64)
 import Json (Member (Member), Value (Array, Number, Object))
 
 -- import Json.Path (Path(Nil,Key,Index))
@@ -166,6 +167,11 @@ word16 :: Scientific -> Parser Word16
 word16 m = case SCI.toWord16 m of
   Just n -> pure n
   _ -> fail "expected number in range [0,2^16)"
+
+word32 :: Scientific -> Parser Word32
+word32 m = case SCI.toWord32 m of
+  Just n -> pure n
+  _ -> fail "expected number in range [0,2^32)"
 
 word64 :: Scientific -> Parser Word64
 word64 m = case SCI.toWord64 m of

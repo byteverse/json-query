@@ -1,35 +1,76 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 import Control.Arrow ((>>>))
 import Data.Bifunctor (first)
 import Data.Bytes (Bytes)
+import Data.Word (Word32, Word64)
 import Json.Error (Error (Error))
 import Json.Path (Path (Index, Key, Nil))
+import Test.Hspec
 import Test.Tasty (TestTree, defaultMain, testGroup)
 import Test.Tasty.HUnit ((@=?))
+import Test.Tasty.Hspec
 
 import qualified Data.Bytes.Text.Ascii as Ascii
+import qualified Data.Number.Scientific as SCI
 import qualified GHC.Exts as Exts
 import qualified Json
 import qualified Json.Arrow as A
 import qualified Json.Context as Ctx
-import qualified Json.Errors as Errors
+import qualified Json.Error as JE
+import qualified Json.Errors as JES
+import qualified Json.Parser as P
 import qualified Json.Path as Path
 import qualified Test.Tasty.HUnit as THU
 
 import qualified Arrowy
 import qualified DogHouse
-import qualified Json.Error
 import qualified Monadic
 
 main :: IO ()
-main = defaultMain tests
+main = do
+  hSpecGroup <- testSpec "Hspec Tests" hSpecTests
+  defaultMain $ testGroup "All Tests" [hSpecGroup, hUnitTests]
 
-tests :: TestTree
-tests =
+hSpecTests :: Spec
+hSpecTests =
+  describe "Parser" $ do
+    describe "word32" $ do
+      context "when value is negative" $ do
+        it "should fail" $ do
+          let input = SCI.small (-1) 0
+          let actual = P.runParser (P.word32 input) Ctx.Top
+          let expected = Left (JES.singleton JE.Error {JE.message = "expected number in range [0,2^32)", JE.context = Ctx.Top})
+          actual `shouldBe` expected
+
+      context "when value is zero" $ do
+        it "should succeed" $ do
+          let input = SCI.small 0 0
+          let actual = P.runParser (P.word32 input) Ctx.Top
+          let expected = Right 0
+          actual `shouldBe` expected
+
+      context "when value is upper bound" $ do
+        it "should succeed" $ do
+          let input = SCI.fromWord32 (maxBound :: Word32)
+          let actual = P.runParser (P.word32 input) Ctx.Top
+          let expected = Right (maxBound :: Word32)
+          actual `shouldBe` expected
+
+      context "when value is greater than upper bound" $ do
+        it "should fail" $ do
+          let large :: Word64 = fromIntegral (maxBound :: Word32) + 1
+          let input = SCI.fromWord64 large
+          let actual = P.runParser (P.word32 input) Ctx.Top
+          let expected = Left (JES.singleton JE.Error {JE.message = "expected number in range [0,2^32)", JE.context = Ctx.Top})
+          actual `shouldBe` expected
+
+hUnitTests :: TestTree
+hUnitTests =
   testGroup
-    "Tests"
+    "HUnit Tests"
     [ THU.testCase "Json.Path.query-A" $
         case Json.decode (Ascii.fromString "{\"bla\": true, \"foo\" : [ 55 , { \"bar\": false } ] }") of
           Left _ -> fail "failed to parse into syntax tree"
@@ -70,10 +111,10 @@ tests =
                     }
                 ]
             )
-            @=? first Errors.toSmallArray (A.run (A.object >>> A.member "foo" >>> A.strings) val)
+            @=? first JES.toSmallArray (A.run (A.object >>> A.member "foo" >>> A.strings) val)
     , THU.testCase "Arrowy-encode-errors" $
         "$.dogs[1].age: expected number, $.dogs[1].age: expected null"
-          @=? Errors.encode Arrowy.badErrors
+          @=? JES.encode Arrowy.badErrors
     ]
 
 sampleArrowyStrings :: Bytes
