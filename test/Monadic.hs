@@ -1,7 +1,6 @@
-{-# language ApplicativeDo #-}
-{-# language NamedFieldPuns #-}
-{-# language OverloadedStrings #-}
-{-# language QuasiQuotes #-}
+{-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Monadic
   ( decode
@@ -9,11 +8,11 @@ module Monadic
   ) where
 
 import Control.Monad ((>=>))
-import DogHouse(Dog(..),House(..))
-import Json.Parser (MemberParser)
+import DogHouse (Dog (..), House (..))
+import Json.Context (Context (Index, Key, Top))
+import Json.Error (Error (..))
 import Json.Errors (Errors)
-import Json.Error (Error(..))
-import Json.Context (Context(Key,Index,Top))
+import Json.Parser (MemberParser)
 
 import qualified Json
 import qualified Json.Errors as Errors
@@ -29,17 +28,20 @@ houseMemberParser = do
     arr <- P.array v
     flip P.smallArray arr $ \e -> do
       P.object e >>= P.members dogMemberParser
-  pure (House{address,dogs})
+  pure (House {address, dogs})
 
 dogMemberParser :: MemberParser Dog
 dogMemberParser = do
   name <- P.key "name" P.string
   age <- P.key "age" (P.number >=> P.int)
   alive <- P.key "alive" P.boolean
-  pure Dog{name,age,alive}
+  pure Dog {name, age, alive}
 
 expectationBad :: Either Errors House
-expectationBad = Left $ Errors.singleton $ Error
-  { context = Key "age" $ Index 1 $ Key "dogs" $ Top
-  , message = "expected number"
-  }
+expectationBad =
+  Left $
+    Errors.singleton $
+      Error
+        { context = Key "age" $ Index 1 $ Key "dogs" $ Top
+        , message = "expected number"
+        }
