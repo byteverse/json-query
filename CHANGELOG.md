@@ -1,5 +1,9 @@
 # Revision history for json-query
 
+## 0.2.3.0 -- 2024-01-18
+
+* Add `Json.Parser.word32`
+
 ## 0.2.2.0 -- 2023-08-09
 
 * Add `Json.Errors.hPut` to make it less verbose to print
