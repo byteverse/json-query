@@ -14,26 +14,26 @@ concurrency:
 env:
   ghc-version: 9.4.7
   cabal-version: 3.10.1.0
+  maintainer-email: ${{ secrets.MAINTAINER_EMAIL }}
+  tag: ${{ github.ref }}
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Run Pre-Release Checks
-      env:
-        MAINTAINER_EMAIL: ${{ secrets.MAINTAINER_EMAIL }}
-      with:
-        TAG: ${{ github.ref }}
-      run: |
-        file="${{ github.workspace }}/.github/check-release.sh"
-        RESULT=$(. "$file $TAG $MAINTAINER_EMAIL" )
-        if [ $? -neq 0 ];
-        then
-          echo "${RESULT}"
-          exit 1
-        fi
+      - name: Run Pre-Release Checks
+        run: |
+          file="${{ github.workspace }}/.github/check-release.sh"
+          command="$file ${{ env.tag }} ${{ env.maintainer-email}}"
+          echo "command: $command"
+          RESULT=$(. "$command" )
+          if [ $? -neq 0 ];
+          then
+            echo "${RESULT}"
+            exit 1
+          fi
 
       # - name: Set up GHC ${{ env.ghc-version }}
       #   uses: haskell-actions/setup@v2
