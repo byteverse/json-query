@@ -1,0 +1,59 @@
+name: release
+on:
+  push:
+    branches:
+      # TODO: Change this to main later.
+      - "*"
+    tags:
+      - "*"
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  ghc-version: 9.4.7
+  cabal-version: 3.10.1.0
+
+jobs:
+  build:
+    name: Set up
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Pre-Release Checks
+        env:
+          MAINTAINER_EMAIL: ${{ secrets.MAINTAINER_EMAIL }}
+        with:
+          TAG: ${{ github.ref }}
+        run: |
+          file="${{ github.workspace }}/.github/check-release.sh"
+          RESULT=$(. "$file $TAG $MAINTAINER_EMAIL" )
+          if [ $? -neq 0 ];
+          then
+            echo "${RESULT}"
+            exit 1
+          fi
+
+      # - name: Set up GHC ${{ env.ghc-version }}
+      #   uses: haskell-actions/setup@v2
+      #   id: setup
+      #   with:
+      #     ghc-version: ${{ env.ghc-version }}
+      #     cabal-version: ${{ env.cabal-version }}
+
+      # - name: Configure the build
+      #   run: |
+      #     cabal configure --enable-tests --enable-benchmarks --disable-documentation
+      #     cabal build all --dry-run
+
+      # - name: Install dependencies
+      #   run: cabal build all --only-dependencies
+
+      # - name: Build
+      #   run: cabal build all
+
+      # - name: Run tests
+      #   run: cabal test all

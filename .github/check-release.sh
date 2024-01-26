@@ -2,10 +2,12 @@
 set -e
 
 # Perform pre-release checks.
+# Args:
+# version number
+# maintainer email address
 
 CABAL_FILE=$(ls *.cabal)
 CHANGELOG_FILE="CHANGELOG.md"
-MAINTAINER_EMAIL="someone@somewhere.com"
 
 die () {
     echo
@@ -15,9 +17,10 @@ die () {
 }
 
 
-[ "$#" -eq 1 ] || die "Specify release version number."
+[ "$#" -eq 2 ] || die "Specify release version number and maintainer's email address."
 
 RELEASE_VERSION="$1"
+MAINTAINER_EMAIL="$2"
 
 echo "Running pre-release checks for version ${RELEASE_VERSION}"
 
