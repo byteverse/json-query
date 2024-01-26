@@ -17,25 +17,23 @@ env:
 
 jobs:
   build:
-    name: Set up
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-      - name: Run Pre-Release Checks
-        env:
-          MAINTAINER_EMAIL: ${{ secrets.MAINTAINER_EMAIL }}
-        with:
-          TAG: ${{ github.ref }}
-        run: |
-          file="${{ github.workspace }}/.github/check-release.sh"
-          RESULT=$(. "$file $TAG $MAINTAINER_EMAIL" )
-          if [ $? -neq 0 ];
-          then
-            echo "${RESULT}"
-            exit 1
-          fi
+    - name: Run Pre-Release Checks
+      env:
+        MAINTAINER_EMAIL: ${{ secrets.MAINTAINER_EMAIL }}
+      with:
+        TAG: ${{ github.ref }}
+      run: |
+        file="${{ github.workspace }}/.github/check-release.sh"
+        RESULT=$(. "$file $TAG $MAINTAINER_EMAIL" )
+        if [ $? -neq 0 ];
+        then
+          echo "${RESULT}"
+          exit 1
+        fi
 
       # - name: Set up GHC ${{ env.ghc-version }}
       #   uses: haskell-actions/setup@v2

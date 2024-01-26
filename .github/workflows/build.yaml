@@ -2,7 +2,7 @@ name: build
 on:
   pull_request:
     branches:
-      - "*"
+      - "none"
 
 concurrency:
   group: build-${{ github.ref }}
