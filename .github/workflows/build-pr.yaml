@@ -22,12 +22,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up GHC ${{ ghc-version }}
+      - name: Set up GHC ${{ env.ghc-version }}
         uses: haskell-actions/setup@v2
         id: setup
         with:
-          ghc-version: ${{ ghc-version }}
-          cabal-version: ${{ cabal-version }}
+          ghc-version: ${{ env.ghc-version }}
+          cabal-version: ${{ env.cabal-version }}
 
       - name: Configure the build
         run: |
