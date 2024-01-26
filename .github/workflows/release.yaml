@@ -23,14 +23,14 @@ jobs:
       - name: Run Pre-Release Checks
         run: |
           file="${{ github.workspace }}/.github/check-release.sh"
-          command="$file ${{ env.tag }} ${{ env.maintainer-email}}"
-          echo "command: $command"
-          # RESULT=$(. "$file ${{ env.tag }} ${{ env.maintainer-email}}" )
-          # if [ $? -neq 0 ];
-          # then
-          #   echo "${RESULT}"
-          #   exit 1
-          # fi
+          #command="$file ${{ env.tag }} ${{ env.maintainer-email}}"
+          #echo "command: $command"
+          RESULT=$(. "$file ${{ env.tag }} ${{ env.maintainer-email }}" )
+          if [ $? -neq 0 ];
+          then
+            echo "${RESULT}"
+            exit 1
+          fi
 
       # - name: Set up GHC ${{ env.ghc-version }}
       #   uses: haskell-actions/setup@v2
