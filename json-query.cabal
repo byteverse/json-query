@@ -7,11 +7,11 @@ description:
   common access patterns. The utilities provided by this library
   only query JSON. They do not update it.
 
-bug-reports:        https://github.com/andrewthad/json-query
+bug-reports:        https://github.com/byteverse/json-query
 license:            BSD-3-Clause
 license-file:       LICENSE
 author:             Andrew Martin
-maintainer:         andrew.thaddeus@gmail.com
+maintainer:         amartin@layer3com.com
 copyright:          2020 Andrew Martin
 category:           Data
 build-type:         Simple
