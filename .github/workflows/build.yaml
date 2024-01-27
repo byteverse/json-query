@@ -14,20 +14,17 @@ env:
 
 jobs:
   build:
-    name: ubuntu-latest
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-
+    runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@latest
 
       - name: Set up GHC ${{ env.ghc-version }}
-        uses: haskell-actions/setup@v2
+        uses: haskell-actions/setup@latest
         id: setup
         with:
           ghc-version: ${{ env.ghc-version }}
           cabal-version: ${{ env.cabal-version }}
+          cabal-update: true
 
       - name: Configure the build
         run: |
@@ -42,3 +39,9 @@ jobs:
 
       - name: Run tests
         run: cabal test all
+
+      - name: Check cabal file
+        run: cabal check
+
+      - name: Build documentation
+        run: cabal haddock all
