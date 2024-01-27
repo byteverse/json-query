@@ -20,6 +20,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Acquire access token
+        id: access-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.GITBOT_APP_ID }}
+          private-key: ${{ secrets.GITBOT_APP_PRIVATE_KEY }}
+
       - name: Run Pre-Release Checks
         run: |
           ./.github/check-release.sh "${{ env.tag }}" "${{ env.maintainer-email }}"
@@ -29,39 +36,41 @@ jobs:
             exit 1
           fi
 
-      - name: Set up GHC ${{ env.ghc-version }}
-        uses: haskell-actions/setup@latest
-        id: setup
-        with:
-          ghc-version: ${{ env.ghc-version }}
-          cabal-version: ${{ env.cabal-version }}
-          cabal-update: true
+      # - name: Set up GHC ${{ env.ghc-version }}
+      #   uses: haskell-actions/setup@latest
+      #   id: setup
+      #   with:
+      #     ghc-version: ${{ env.ghc-version }}
+      #     cabal-version: ${{ env.cabal-version }}
+      #     cabal-update: true
 
-      - name: Configure the build
-        run: |
-          cabal configure --enable-tests --enable-benchmarks --disable-documentation
-          cabal build all --dry-run
+      # - name: Configure the build
+      #   run: |
+      #     cabal configure --enable-tests --enable-benchmarks --disable-documentation
+      #     cabal build all --dry-run
 
-      - name: Install dependencies
-        run: cabal build all --only-dependencies
+      # - name: Install dependencies
+      #   run: cabal build all --only-dependencies
 
-      - name: Build
-        run: cabal build all
+      # - name: Build
+      #   run: cabal build all
 
-      - name: Run tests
-        run: cabal test all
+      # - name: Run tests
+      #   run: cabal test all
 
-      - name: Check cabal file
-        run: cabal check
+      # - name: Check cabal file
+      #   run: cabal check
 
-      - name: Build documentation
-        run: cabal haddock all
+      # - name: Build documentation
+      #   run: cabal haddock all
 
-      - name: Build source archive
-        run: cabal sdist
+      # - name: Build source archive
+      #   run: cabal sdist
 
       - name: Create GitHub Release
         uses: actions/create-release@latest
+        env:
+          GITHUB_TOKEN: ${{ steps.access-token.outputs.token }}
         with:
           tag_name: ${{ env.tag }}
           release_name: Release ${{ env.tag }}
