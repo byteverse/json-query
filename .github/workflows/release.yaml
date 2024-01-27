@@ -30,7 +30,7 @@ jobs:
       - name: Run Pre-Release Checks
         run: |
           ./.github/check-release.sh "${{ env.tag }}" "${{ env.maintainer-email }}"
-          if [ $? -neq 0 ];
+          if [ $? -ne 0 ];
           then
             echo "${RESULT}"
             exit 1
@@ -68,11 +68,11 @@ jobs:
       #   run: cabal sdist
 
       - name: Create GitHub Release
-        uses: actions/create-release@latest
+        uses: ncipollo/release-action@v1
         env:
           GITHUB_TOKEN: ${{ steps.access-token.outputs.token }}
-        with:
-          tag_name: ${{ env.tag }}
-          release_name: Release ${{ env.tag }}
-          draft: false
-          prerelease: false
+        # with:
+        #   tag_name: ${{ env.tag }}
+        #   release_name: Release ${{ env.tag }}
+        #   draft: false
+        #   prerelease: false
