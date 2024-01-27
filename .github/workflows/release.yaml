@@ -16,7 +16,7 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
 
@@ -29,23 +29,23 @@ jobs:
             exit 1
           fi
 
-      # - name: Set up GHC ${{ env.ghc-version }}
-      #   uses: haskell-actions/setup@v2
-      #   id: setup
-      #   with:
-      #     ghc-version: ${{ env.ghc-version }}
-      #     cabal-version: ${{ env.cabal-version }}
+      - name: Set up GHC ${{ env.ghc-version }}
+        uses: haskell-actions/setup@v2
+        id: setup
+        with:
+          ghc-version: ${{ env.ghc-version }}
+          cabal-version: ${{ env.cabal-version }}
 
-      # - name: Configure the build
-      #   run: |
-      #     cabal configure --enable-tests --enable-benchmarks --disable-documentation
-      #     cabal build all --dry-run
+      - name: Configure the build
+        run: |
+          cabal configure --enable-tests --enable-benchmarks --disable-documentation
+          cabal build all --dry-run
 
-      # - name: Install dependencies
-      #   run: cabal build all --only-dependencies
+      - name: Install dependencies
+        run: cabal build all --only-dependencies
 
-      # - name: Build
-      #   run: cabal build all
+      - name: Build
+        run: cabal build all
 
-      # - name: Run tests
-      #   run: cabal test all
+      - name: Run tests
+        run: cabal test all
