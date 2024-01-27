@@ -36,38 +36,51 @@ jobs:
             exit 1
           fi
 
-      - name: Set up GHC ${{ env.ghc-version }}
-        uses: haskell-actions/setup@latest
-        id: setup
-        with:
-          ghc-version: ${{ env.ghc-version }}
-          cabal-version: ${{ env.cabal-version }}
-          cabal-update: true
+      # - name: Set up GHC ${{ env.ghc-version }}
+      #   uses: haskell-actions/setup@latest
+      #   id: setup
+      #   with:
+      #     ghc-version: ${{ env.ghc-version }}
+      #     cabal-version: ${{ env.cabal-version }}
+      #     cabal-update: true
 
-      - name: Configure the build
-        run: |
-          cabal configure --enable-tests --enable-benchmarks --disable-documentation
-          cabal build all --dry-run
+      # - name: Configure the build
+      #   run: |
+      #     cabal configure --enable-tests --enable-benchmarks --disable-documentation
+      #     cabal build all --dry-run
 
-      - name: Install dependencies
-        run: cabal build all --only-dependencies
+      # - name: Install dependencies
+      #   run: cabal build all --only-dependencies
 
-      - name: Build
-        run: cabal build all
+      # - name: Build
+      #   run: cabal build all
 
-      - name: Run tests
-        run: cabal test all
+      # - name: Run tests
+      #   run: cabal test all
 
-      - name: Check cabal file
-        run: cabal check
+      # - name: Check cabal file
+      #   run: cabal check
+
+      # - name: Build documentation
+      #   run: cabal haddock all
+
+      # - name: Build source archive
+      #   run: cabal sdist --output-directory ./dist-newstyle
 
       - name: Build documentation
-        run: cabal haddock all
+        run: |
+          PKG_VERSION="${{ github.event.repository.name }}-${{ env.tag }}"
+          echo "PKG_VERSION: $PKG_VERSION"
+          # cabal haddock \
+          #   --haddock-html-location='https://hackage.haskell.org/package/${PKG_VERSION}/docs' \
+          #   --haddock-hyperlink-source \
+          #   --haddock-quickjump \
+          #   --haddock-for-hackage
 
-      - name: Build source archive
-        run: cabal sdist
-
-      - name: Create release
-        uses: ncipollo/release-action@v1
-        env:
-          GITHUB_TOKEN: ${{ steps.access-token.outputs.token }}
+      # - name: Create release
+      #   uses: ncipollo/release-action@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ steps.access-token.outputs.token }}
+      #   with:
+      #     allowUpdates: true
+      #     generateReleaseNotes: true
