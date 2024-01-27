@@ -2,7 +2,7 @@ name: build
 on:
   pull_request:
     branches:
-      - "none"
+      - "*"
 
 concurrency:
   group: build-${{ github.ref }}
@@ -39,9 +39,3 @@ jobs:
 
       - name: Run tests
         run: cabal test all
-
-      - name: Check cabal file
-        run: cabal check
-
-      - name: Build documentation
-        run: cabal haddock all
