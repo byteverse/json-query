@@ -1,7 +1,5 @@
 # Revision history for json-query
 
-## 0.2.3.2 -- Testing
-
 ## 0.2.3.1 -- 2024-01-29
 
 * Update package metadata.

@@ -1,6 +1,6 @@
 cabal-version:   2.4
 name:            json-query
-version:         0.2.3.2
+version:         0.2.3.1
 synopsis:        Kitchen sink for querying JSON
 description:
   The library complements json-syntax by making available several

@@ -6,7 +6,7 @@ on:
 
 jobs:
   call-workflow:
-    uses: byteverse/.github/.github/workflows/build.yaml@testing
+    uses: byteverse/.github/.github/workflows/build.yaml@main
     secrets: inherit
     with:
       release: true
