@@ -4,38 +4,9 @@ on:
     branches:
       - "*"
 
-concurrency:
-  group: build-${{ github.ref }}
-  cancel-in-progress: true
-
-env:
-  ghc-version: 9.4.7
-  cabal-version: 3.10.1.0
-
 jobs:
-  build:
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up GHC ${{ env.ghc-version }}
-        uses: haskell-actions/setup@latest
-        id: setup
-        with:
-          ghc-version: ${{ env.ghc-version }}
-          cabal-version: ${{ env.cabal-version }}
-          cabal-update: true
-
-      - name: Configure the build
-        run: |
-          cabal configure --enable-tests --enable-benchmarks --disable-documentation
-          cabal build all --dry-run
-
-      - name: Install dependencies
-        run: cabal build all --only-dependencies
-
-      - name: Build
-        run: cabal build all
-
-      - name: Run tests
-        run: cabal test all
+  call-workflow:
+    uses: byteverse/.github/.github/workflows/build.yaml@main
+    secrets: inherit
+    with:
+      release: false
