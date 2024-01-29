@@ -9,4 +9,4 @@ jobs:
     uses: byteverse/.github/.github/workflows/build.yaml@testing
     secrets: inherit
     with:
-      release: false
+      release: true
