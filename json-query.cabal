@@ -8,7 +8,7 @@ description:
   only query JSON. They do not update it.
 
 homepage:        https://github.com/byteverse/json-query
-bug-reports:     https://github.com/byteverse/json-query
+bug-reports:     https://github.com/byteverse/json-query/issues
 license:         BSD-3-Clause
 license-file:    LICENSE
 author:          Andrew Martin
