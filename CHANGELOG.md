@@ -1,5 +1,9 @@
 # Revision history for json-query
 
+## 0.3.0.0 -- 2025-07-14
+
+* Update to work with json-syntax
+
 ## 0.2.3.1 -- 2024-01-29
 
 * Update package metadata.

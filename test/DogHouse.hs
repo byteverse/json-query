@@ -15,7 +15,7 @@ import Data.ByteString.Short.Internal (ShortByteString (SBS))
 import Data.Bytes (Bytes)
 import Data.Primitive (ByteArray, SmallArray)
 import Data.Text.Encoding (encodeUtf8)
-import Data.Text.Short (ShortText)
+import Data.Text (Text)
 import NeatInterpolation (text)
 
 import qualified Data.ByteString.Short as SBS
@@ -24,13 +24,13 @@ import qualified Data.Primitive as PM
 import qualified GHC.Exts as Exts
 
 data House = House
-  { address :: !ShortText
+  { address :: {-# UNPACK #-} !Text
   , dogs :: !(SmallArray Dog)
   }
   deriving (Eq, Show)
 
 data Dog = Dog
-  { name :: !ShortText
+  { name :: {-# UNPACK #-} !Text
   , age :: !Int
   , alive :: !Bool
   }

@@ -58,7 +58,7 @@ import Data.Int (Int32)
 import Data.List (find)
 import Data.Number.Scientific (Scientific)
 import Data.Primitive (SmallArray)
-import Data.Text.Short (ShortText)
+import Data.Text (Text)
 import Data.Word (Word16, Word32, Word64)
 import Json (Member (Member), Value (Array, Number, Object))
 
@@ -127,7 +127,7 @@ run (Parser f) = case f Top of
   Right a -> Right a
   Left e -> Left e
 
-fail :: ShortText -> Parser a
+fail :: Text -> Parser a
 fail !msg = Parser (\e -> Left (Errors.singleton Error {context = e, message = msg}))
 
 object :: Value -> Parser (SmallArray Member)
@@ -148,7 +148,7 @@ number = \case
   Number n -> pure n
   _ -> fail "expected number"
 
-string :: Value -> Parser ShortText
+string :: Value -> Parser Text
 string = \case
   Json.String n -> pure n
   _ -> fail "expected string"
@@ -187,7 +187,7 @@ boolean = \case
 -- members :: Parser Value (Chunks Member)
 -- members = _
 
-key :: ShortText -> (Value -> Parser a) -> MemberParser a
+key :: Text -> (Value -> Parser a) -> MemberParser a
 key !name f = MemberParser $ \p mbrs ->
   let !p' = Key name p
    in case find (\Member {key = k} -> k == name) mbrs of
@@ -199,7 +199,7 @@ callback if the key is not found. Using this parser combinators implies
 that there is no distinction between @null@ and an absent value in
 the encoding scheme.
 -}
-keyOptNull :: ShortText -> (Value -> Parser a) -> MemberParser a
+keyOptNull :: Text -> (Value -> Parser a) -> MemberParser a
 keyOptNull !name f = MemberParser $ \p mbrs ->
   let !p' = Key name p
       val = case find (\Member {key = k} -> k == name) mbrs of

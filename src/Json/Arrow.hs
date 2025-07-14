@@ -59,6 +59,7 @@ import Data.Number.Scientific (Scientific)
 import Data.Primitive (SmallArray)
 import Data.Primitive.Unlifted.Array (UnliftedArray)
 import Data.Profunctor (Profunctor (..))
+import Data.Text (Text)
 import Data.Text.Short (ShortText)
 import Data.Word (Word16, Word64)
 import Json (Member (Member), Value (Array, Number, Object, String))
@@ -94,7 +95,7 @@ array = P $ \ctx v -> case v of
   Array membs -> Right (ctx, Elements membs)
   _ -> Left (Errors.singleton (Error "expected array" ctx))
 
-string :: Value ~> ShortText
+string :: Value ~> Text
 string = P $ \ctx v -> case v of
   String str -> Right (ctx, str)
   _ -> Left (Errors.singleton (Error "expected string" ctx))
@@ -106,7 +107,7 @@ string = P $ \ctx v -> case v of
 Failure context includes the index of non-string value if any values in
 the array are not strings.
 -}
-strings :: Value ~> UnliftedArray ShortText
+strings :: Value ~> SmallArray Text
 strings = P $ \ctx v -> case v of
   Array membs -> runST $ runExceptT $ do
     xs <-
@@ -137,7 +138,7 @@ null = P $ \ctx v -> case v of
 
 newtype Members = Members {unMembers :: SmallArray Member}
 
-member :: ShortText -> Members ~> Value
+member :: Text -> Members ~> Value
 member k = P $ \ctx xs -> case find keyEq (unMembers xs) of
   Just Member {value} -> Right (Key k ctx, value)
   Nothing -> Left (Errors.singleton (Error ("key not found: " <> k) ctx))
@@ -145,7 +146,7 @@ member k = P $ \ctx xs -> case find keyEq (unMembers xs) of
   keyEq Member {key} = k == key
 
 -- | An optional member. Returns Nothing if the value is missing.
-memberOpt :: ShortText -> Members ~> Maybe Value
+memberOpt :: Text -> Members ~> Maybe Value
 memberOpt k = P $ \ctx xs -> case find keyEq (unMembers xs) of
   Just Member {value} -> Right (Key k ctx, Just value)
   Nothing -> Right (ctx, Nothing)
@@ -248,7 +249,7 @@ instance ArrowChoice Parser where
 instance ArrowApply Parser where
   app = P $ \ctx (p, x) -> unParser p ctx x
 
-fail :: ShortText -> a ~> b
+fail :: Text -> a ~> b
 fail msg = P $ \ctx _ -> Left (Errors.singleton (Error msg ctx))
 
 failZero :: a ~> b
@@ -256,7 +257,7 @@ failZero = P $ \ctx _ -> Left (Errors.singleton (Error "" ctx))
 
 liftMaybe ::
   -- | Message to display on decode error
-  ShortText ->
+  Text ->
   -- | Decode function
   (a -> Maybe b) ->
   a ~> b
