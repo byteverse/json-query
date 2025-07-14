@@ -11,6 +11,7 @@ module Json.Context
   ) where
 
 import Data.Bytes.Builder (Builder)
+import Data.Text (Text)
 import Data.Text.Short (ShortText)
 import Json.Path (Path)
 
@@ -26,7 +27,7 @@ parsing.
 -}
 data Context
   = Top
-  | Key !ShortText !Context
+  | Key {-# UNPACK #-} !Text !Context
   | Index !Int !Context
   deriving (Eq, Show)
 

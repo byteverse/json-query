@@ -23,6 +23,7 @@ import Data.ByteString.Short.Internal (ShortByteString (SBS))
 import Data.Bytes.Builder (Builder)
 import Data.Primitive (ByteArray (ByteArray))
 import Data.Text.Short (ShortText)
+import Data.Text (Text)
 import Json (Member (Member), Value (Array, Null, Object))
 
 import qualified Data.Bytes.Builder as Builder
@@ -33,7 +34,7 @@ import qualified Data.Text.Short.Unsafe as TS
 -- | A path to an object.
 data Path
   = -- | JSON path element of a key into an object, \"object.key\".
-    Key {-# UNPACK #-} !ShortText !Path
+    Key {-# UNPACK #-} !Text !Path
   | -- | JSON path element of an index into an array, \"array[index]\".
     -- Negative numbers result in undefined behavior.
     Index {-# UNPACK #-} !Int !Path
@@ -51,7 +52,7 @@ builderUtf8 :: Path -> Builder
 builderUtf8 p0 = Builder.ascii '$' <> go p0
  where
   go Nil = mempty
-  go (Key k p) = Builder.ascii '.' <> Builder.shortTextUtf8 k <> go p
+  go (Key k p) = Builder.ascii '.' <> Builder.textUtf8 k <> go p
   go (Index i p) =
     Builder.ascii '['
       <> Builder.wordDec (fromIntegral i)

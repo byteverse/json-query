@@ -13,6 +13,7 @@ module Json.Error
 import Data.ByteString.Short.Internal (ShortByteString (SBS))
 import Data.Bytes.Builder (Builder)
 import Data.Text.Short (ShortText)
+import Data.Text (Text)
 import Json.Context (Context (..))
 
 import qualified Data.Bytes.Builder as Builder
@@ -23,7 +24,7 @@ import qualified Json.Context as Context
 
 -- | A single error message.
 data Error = Error
-  { message :: !ShortText
+  { message :: {-# UNPACK #-} !Text
   , context :: !Context
   }
   deriving (Eq, Show)
@@ -39,4 +40,4 @@ builderUtf8 :: Error -> Builder
 builderUtf8 Error {message, context} =
   Context.builderUtf8 context
     <> Builder.ascii2 ':' ' '
-    <> Builder.shortTextUtf8 message
+    <> Builder.textUtf8 message
